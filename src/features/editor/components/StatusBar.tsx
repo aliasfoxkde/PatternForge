@@ -4,6 +4,7 @@
  * Shows cursor position, grid dimensions, zoom level, and row counter.
  */
 
+import { GridSizeControls } from '@/features/editor/components/GridSizeControls';
 import { RowCounter } from '@/features/progress/components/RowCounter';
 import { useProgressStore } from '@/features/progress/progress-store';
 import { usePatternStore } from '@/shared/stores/pattern-store';
@@ -29,7 +30,13 @@ export function StatusBar({ cursorPos }: StatusBarProps) {
 					? `Row: ${cursorPos.row}, Col: ${cursorPos.col}`
 					: 'No selection'}
 			</span>
-			<span>{gridWidth} x {gridHeight}</span>
+			<span>
+				{pattern ? (
+					<GridSizeControls width={gridWidth} height={gridHeight} />
+				) : (
+					`${gridWidth} x ${gridHeight}`
+				)}
+			</span>
 			<span>{Math.round(zoom * 100)}%</span>
 			{pattern && (
 				<RowCounter

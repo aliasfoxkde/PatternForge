@@ -13,3 +13,8 @@ export {
 	downloadPatternJSON,
 	readPatternFile,
 } from "./export-json";
+
+export { exportToCSV, downloadPatternCSV } from "./export-csv";
+
+export { printPattern } from "./export-print";
+export type { PrintOptions } from "./export-print";
