@@ -1,0 +1,32 @@
+/**
+ * StatusBar - Bottom status bar for the editor.
+ *
+ * Shows cursor position, grid dimensions, and zoom level.
+ */
+
+import { usePatternStore } from '@/shared/stores/pattern-store';
+import { useEditorStore } from '@/shared/stores/editor-store';
+
+export interface StatusBarProps {
+	cursorPos: { row: number; col: number } | null;
+}
+
+export function StatusBar({ cursorPos }: StatusBarProps) {
+	const pattern = usePatternStore((s) => s.pattern);
+	const zoom = useEditorStore((s) => s.zoom);
+
+	const gridWidth = pattern?.grid.width ?? 0;
+	const gridHeight = pattern?.grid.height ?? 0;
+
+	return (
+		<div className="flex h-6 items-center justify-between border-t border-border bg-surface-secondary px-3 text-[11px] text-text-muted">
+			<span>
+				{cursorPos
+					? `Row: ${cursorPos.row}, Col: ${cursorPos.col}`
+					: 'No selection'}
+			</span>
+			<span>{gridWidth} x {gridHeight}</span>
+			<span>{Math.round(zoom * 100)}%</span>
+		</div>
+	);
+}

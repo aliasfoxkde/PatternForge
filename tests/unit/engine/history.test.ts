@@ -81,9 +81,10 @@ describe("HistoryManager", () => {
   });
 
   it("clears all history", () => {
+    const grid = new PatternGrid(10, 10);
     const history = new HistoryManager();
-    history.execute(new ApplyCellsCommand("paint", []));
-    history.execute(new ApplyCellsCommand("paint", []));
+    history.execute(new ApplyCellsCommand("paint", []), grid);
+    history.execute(new ApplyCellsCommand("paint", []), grid);
     expect(history.canUndo()).toBe(true);
     history.clear();
     expect(history.canUndo()).toBe(false);
