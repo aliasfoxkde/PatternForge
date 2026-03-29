@@ -22,6 +22,7 @@ import { ToolPalette } from "@/features/editor/components/ToolPalette";
 import { ExportDialog } from "@/features/export/components/ExportDialog";
 import { InstructionsPanel } from "@/features/instructions/components/InstructionsPanel";
 import { ProgressPanel } from "@/features/progress/components/ProgressPanel";
+import { ShareDialog } from "@/features/share/components/ShareDialog";
 import { useAutoSave } from "@/shared/hooks/use-auto-save";
 import { useHistoryManager } from "@/shared/hooks/use-history-manager";
 import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";
@@ -39,6 +40,7 @@ import {
 	Plus,
 	Redo2,
 	Save,
+	Share2,
 	Undo2,
 	ZoomIn,
 	ZoomOut,
@@ -55,6 +57,7 @@ export function EditorPage() {
 	const [showExportDialog, setShowExportDialog] = useState(false);
 	const [showInstructionsDialog, setShowInstructionsDialog] = useState(false);
 	const [showProgressPanel, setShowProgressPanel] = useState(false);
+	const [showShareDialog, setShowShareDialog] = useState(false);
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editName, setEditName] = useState("");
 	const nameInputRef = useRef<HTMLInputElement>(null);
@@ -441,6 +444,15 @@ export function EditorPage() {
 				<button
 					type="button"
 					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+					onClick={() => setShowShareDialog(true)}
+					disabled={!pattern}
+				>
+					<Share2 className="h-3.5 w-3.5" />
+					Share
+				</button>
+				<button
+					type="button"
+					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
 					onClick={() => setShowExportDialog(true)}
 					disabled={!pattern}
 				>
@@ -530,6 +542,13 @@ export function EditorPage() {
 				open={showShortcuts}
 				onClose={() => useEditorStore.getState().setShowShortcuts(false)}
 			/>
+			{pattern && (
+				<ShareDialog
+					open={showShareDialog}
+					onClose={() => setShowShareDialog(false)}
+					pattern={pattern}
+				/>
+			)}
 		</div>
 	);
 }
