@@ -3,13 +3,22 @@
  *
  * Renders the processed image data onto a canvas, displays confetti score
  * and color count, and provides actions for opening in the editor or
- * downloading as PNG.
+ * downloading as PNG. Supports a before/after comparison mode that
+ * shows the original image alongside the converted pattern with a
+ * draggable divider.
  */
 
 import { oklchToHex } from "@/engine/color/colors";
 import type { ProcessedImage } from "@/engine/image/image-processor";
-import { Download, ExternalLink, Palette, Star } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Columns2, Download, ExternalLink, Palette, Star } from "lucide-react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type PointerEvent as ReactPointerEvent,
+} from "react";
 
 export interface PatternPreviewProps {
 	/** Processed image data to render, or null if not yet processed */
@@ -18,6 +27,8 @@ export interface PatternPreviewProps {
 	isProcessing: boolean;
 	/** Callback to open the converted pattern in the editor */
 	onOpenInEditor: () => void;
+	/** Original uploaded image URL for before/after comparison */
+	originalImageUrl?: string | null;
 	/** Additional class names */
 	className?: string;
 }
@@ -42,9 +53,14 @@ export function PatternPreview({
 	processedImage,
 	isProcessing,
 	onOpenInEditor,
+	originalImageUrl = null,
 	className = "",
 }: PatternPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [compareMode, setCompareMode] = useState(false);
+	const [splitPosition, setSplitPosition] = useState(50);
+	const isDragging = useRef(false);
 
 	// Render the processed image onto canvas
 	useEffect(() => {
@@ -125,6 +141,31 @@ export function PatternPreview({
 		link.click();
 	}, []);
 
+	// Divider drag handlers
+	const handlePointerDown = useCallback(
+		(e: ReactPointerEvent<HTMLDivElement>) => {
+			e.preventDefault();
+			isDragging.current = true;
+			(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		},
+		[],
+	);
+
+	const handlePointerMove = useCallback(
+		(e: ReactPointerEvent<HTMLDivElement>) => {
+			if (!isDragging.current || !containerRef.current) return;
+			const rect = containerRef.current.getBoundingClientRect();
+			const x = e.clientX - rect.left;
+			const percent = Math.max(5, Math.min(95, (x / rect.width) * 100));
+			setSplitPosition(percent);
+		},
+		[],
+	);
+
+	const handlePointerUp = useCallback(() => {
+		isDragging.current = false;
+	}, []);
+
 	// Quality info
 	const qualityInfo = useMemo(
 		() =>
@@ -133,6 +174,7 @@ export function PatternPreview({
 	);
 
 	const uniqueColors = processedImage?.palette.length ?? 0;
+	const canCompare = originalImageUrl !== null && processedImage !== null;
 
 	if (!processedImage && !isProcessing) {
 		return (
@@ -156,12 +198,73 @@ export function PatternPreview({
 
 	return (
 		<div className={`flex flex-col gap-4 ${className}`}>
-			{/* Canvas */}
-			<div className="flex flex-1 items-center justify-center overflow-auto rounded-xl border border-border bg-surface-secondary p-4">
+			{/* Canvas / Compare view */}
+			<div
+				ref={containerRef}
+				className="relative flex flex-1 items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-secondary p-4"
+			>
 				{isProcessing ? (
 					<div className="flex flex-col items-center gap-3">
 						<div className="h-8 w-8 animate-spin rounded-full border-4 border-craft-200 border-t-craft-600" />
 						<p className="text-sm text-text-secondary">Processing image...</p>
+					</div>
+				) : compareMode && canCompare ? (
+					/* Before / After comparison */
+					<div className="relative flex w-full max-w-2xl items-center justify-center overflow-hidden rounded-md shadow-sm">
+						{/* Original image (left) */}
+						<div
+							className="absolute inset-0 overflow-hidden"
+							style={{ clipPath: `inset(0 ${100 - splitPosition}% 0 0)` }}
+						>
+							<img
+								src={originalImageUrl!}
+								alt="Original"
+								className="h-full w-full object-contain"
+								draggable={false}
+							/>
+							<span className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+								Original
+							</span>
+						</div>
+
+						{/* Pattern canvas (right) */}
+						<div
+							className="absolute inset-0 flex items-center justify-center bg-white"
+							style={{ clipPath: `inset(0 0 0 ${splitPosition}%)` }}
+						>
+							<canvas ref={canvasRef} className="rounded-md" />
+							<span className="absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+								Pattern
+							</span>
+						</div>
+
+						{/* Draggable divider */}
+						<div
+							className="absolute inset-y-0 z-10 w-5 -translate-x-1/2 cursor-col-resize"
+							style={{ left: `${splitPosition}%` }}
+							onPointerDown={handlePointerDown}
+							onPointerMove={handlePointerMove}
+							onPointerUp={handlePointerUp}
+							onPointerCancel={handlePointerUp}
+							role="slider"
+							aria-label="Comparison slider"
+							aria-valuenow={Math.round(splitPosition)}
+							aria-valuemin={5}
+							aria-valuemax={95}
+							tabIndex={0}
+							onKeyDown={(e) => {
+								const step = e.shiftKey ? 5 : 1;
+								if (e.key === "ArrowLeft")
+									setSplitPosition((p) => Math.max(5, p - step));
+								if (e.key === "ArrowRight")
+									setSplitPosition((p) => Math.min(95, p + step));
+							}}
+						>
+							<div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-white shadow-sm" />
+							<div className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-craft-600 shadow-lg">
+								<Columns2 className="h-3.5 w-3.5 text-white" />
+							</div>
+						</div>
 					</div>
 				) : (
 					<canvas ref={canvasRef} className="rounded-md shadow-sm" />
@@ -206,6 +309,20 @@ export function PatternPreview({
 						<ExternalLink className="h-4 w-4" />
 						Open in Editor
 					</button>
+					{canCompare && (
+						<button
+							type="button"
+							onClick={() => setCompareMode((v) => !v)}
+							className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+								compareMode
+									? "border-craft-500 bg-craft-50 text-craft-700"
+									: "border-border bg-surface text-text-primary hover:bg-surface-tertiary"
+							}`}
+						>
+							<Columns2 className="h-4 w-4" />
+							{compareMode ? "Hide Compare" : "Compare"}
+						</button>
+					)}
 					<button
 						type="button"
 						onClick={handleDownload}

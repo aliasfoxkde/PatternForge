@@ -14,6 +14,8 @@ import { ColorPalette } from "@/features/editor/components/ColorPalette";
 import { CommandPalette } from "@/features/editor/components/CommandPalette";
 import type { CommandItem } from "@/features/editor/components/CommandPalette";
 import { GridCanvas } from "@/features/editor/components/GridCanvas";
+import { KeyboardShortcuts } from "@/features/editor/components/KeyboardShortcuts";
+import { Minimap } from "@/features/editor/components/Minimap";
 import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog";
 import { StatusBar } from "@/features/editor/components/StatusBar";
 import { ToolPalette } from "@/features/editor/components/ToolPalette";
@@ -68,6 +70,8 @@ export function EditorPage() {
 	const setActiveTool = useEditorStore((s) => s.setActiveTool);
 	const showToolPanel = useEditorStore((s) => s.showToolPanel);
 	const showColorPanel = useEditorStore((s) => s.showColorPanel);
+	const showShortcuts = useEditorStore((s) => s.showShortcuts);
+	const toggleShortcuts = useEditorStore((s) => s.toggleShortcuts);
 	const showGridLines = useSettingsStore((s) => s.showGridLines);
 	const setShowGridLines = useSettingsStore((s) => s.setShowGridLines);
 
@@ -183,6 +187,7 @@ export function EditorPage() {
 			"mod+k": () => setShowCommandPalette(true),
 			"=": () => handleZoomIn(),
 			"-": () => handleZoomOut(),
+			"?": () => toggleShortcuts(),
 		}),
 		[
 			undo,
@@ -192,6 +197,7 @@ export function EditorPage() {
 			handleZoomIn,
 			handleZoomOut,
 			handleFitToView,
+			toggleShortcuts,
 		],
 	);
 
@@ -482,6 +488,7 @@ export function EditorPage() {
 				{/* Center: Canvas */}
 				<div className="relative flex-1 overflow-hidden">
 					<GridCanvas executeCommand={executeCommand} />
+					<Minimap width={0} height={0} />
 				</div>
 
 				{/* Right: Color palette */}
@@ -518,6 +525,10 @@ export function EditorPage() {
 			<ProgressPanel
 				open={showProgressPanel}
 				onClose={() => setShowProgressPanel(false)}
+			/>
+			<KeyboardShortcuts
+				open={showShortcuts}
+				onClose={() => useEditorStore.getState().setShowShortcuts(false)}
 			/>
 		</div>
 	);

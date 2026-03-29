@@ -244,6 +244,7 @@ export function ImageConverterPage() {
 							processedImage={processedImage}
 							isProcessing={isProcessing}
 							onOpenInEditor={handleOpenInEditor}
+							originalImageUrl={imageDataUrl}
 						/>
 					</div>
 				</div>

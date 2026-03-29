@@ -1,13 +1,16 @@
 /**
  * ExportDialog - Modal dialog for exporting patterns.
  *
- * Supports PNG, SVG, PDF, and JSON export formats with
+ * Supports PNG, SVG, PDF, JSON, and CSV export formats with
  * configurable options like cell size, grid lines, and page size.
+ * Also provides a print button for direct browser printing.
  */
 
 import type { Pattern } from "@/engine/pattern/types";
+import { downloadPatternCSV } from "@/features/export/export-csv";
 import { downloadPatternJSON } from "@/features/export/export-json";
 import { exportToPDF } from "@/features/export/export-pdf";
+import { printPattern } from "@/features/export/export-print";
 import { exportToPNG } from "@/features/export/export-png";
 import { exportToSVG } from "@/features/export/export-svg";
 import {
@@ -18,11 +21,13 @@ import {
 	FileJson,
 	FileText,
 	Loader2,
+	Printer,
+	Table,
 	X,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 
-export type ExportFormat = "png" | "svg" | "pdf" | "json";
+export type ExportFormat = "png" | "svg" | "pdf" | "json" | "csv";
 
 export interface ExportDialogProps {
 	/** Whether the dialog is open */
@@ -52,6 +57,12 @@ const FORMAT_OPTIONS: Array<{
 		label: "JSON",
 		description: "PatternForge file",
 		icon: FileJson,
+	},
+	{
+		value: "csv",
+		label: "CSV",
+		description: "Spreadsheet data",
+		icon: Table,
 	},
 ];
 
@@ -125,6 +136,10 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 					downloadPatternJSON(pattern, baseName);
 					break;
 				}
+				case "csv": {
+					downloadPatternCSV(pattern.grid, baseName);
+					break;
+				}
 			}
 
 			setExportSuccess(true);
@@ -186,7 +201,7 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 						<span className="mb-2 block text-xs font-medium text-text-secondary">
 							Format
 						</span>
-						<div className="grid grid-cols-4 gap-2">
+						<div className="grid grid-cols-5 gap-2">
 							{FORMAT_OPTIONS.map((opt) => (
 								<button
 									key={opt.value}
@@ -301,6 +316,8 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 							"Scalable vector format. Best for web display and printing at any size."}
 						{format === "pdf" &&
 							"Multi-page PDF suitable for printing. Includes grid and optional color legend."}
+						{format === "csv" &&
+							"Exports grid cell data as CSV. One row per populated cell with color, symbol, and stitch info."}
 					</div>
 				</div>
 
@@ -312,6 +329,21 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 						className="rounded-md border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
 					>
 						Cancel
+					</button>
+					<button
+						type="button"
+						onClick={() =>
+							printPattern(pattern, {
+								cellSize,
+								showGridLines,
+								showSymbols,
+							})
+						}
+						className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
+						title="Print pattern"
+					>
+						<Printer className="h-4 w-4" />
+						Print
 					</button>
 					<button
 						type="button"
