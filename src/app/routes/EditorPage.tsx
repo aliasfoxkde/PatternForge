@@ -9,34 +9,36 @@
  *   Bottom:     StatusBar
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { deserializePattern, serializePattern } from "@/engine/pattern/types";
+import { ColorPalette } from "@/features/editor/components/ColorPalette";
+import { CommandPalette } from "@/features/editor/components/CommandPalette";
+import type { CommandItem } from "@/features/editor/components/CommandPalette";
+import { GridCanvas } from "@/features/editor/components/GridCanvas";
+import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog";
+import { StatusBar } from "@/features/editor/components/StatusBar";
+import { ToolPalette } from "@/features/editor/components/ToolPalette";
+import { ExportDialog } from "@/features/export/components/ExportDialog";
+import { useAutoSave } from "@/shared/hooks/use-auto-save";
+import { useHistoryManager } from "@/shared/hooks/use-history-manager";
+import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";
+import { storage } from "@/shared/storage/storage";
+import { useEditorStore } from "@/shared/stores/editor-store";
+import { usePatternStore } from "@/shared/stores/pattern-store";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 import {
-	Undo2,
+	Download,
+	Grid3x3,
+	Maximize2,
+	Pencil,
+	Plus,
 	Redo2,
+	Save,
+	Undo2,
 	ZoomIn,
 	ZoomOut,
-	Maximize2,
-	Save,
-	Plus,
-	Pencil,
-	Grid3x3,
-} from 'lucide-react';
-import { GridCanvas } from '@/features/editor/components/GridCanvas';
-import { ToolPalette } from '@/features/editor/components/ToolPalette';
-import { ColorPalette } from '@/features/editor/components/ColorPalette';
-import { StatusBar } from '@/features/editor/components/StatusBar';
-import { NewPatternDialog } from '@/features/editor/components/NewPatternDialog';
-import { CommandPalette } from '@/features/editor/components/CommandPalette';
-import type { CommandItem } from '@/features/editor/components/CommandPalette';
-import { usePatternStore } from '@/shared/stores/pattern-store';
-import { useEditorStore } from '@/shared/stores/editor-store';
-import { useSettingsStore } from '@/shared/stores/settings-store';
-import { useHistoryManager } from '@/shared/hooks/use-history-manager';
-import { useKeyboardShortcuts } from '@/shared/hooks/use-keyboard-shortcuts';
-import { useAutoSave } from '@/shared/hooks/use-auto-save';
-import { storage } from '@/shared/storage/storage';
-import { serializePattern, deserializePattern } from '@/engine/pattern/types';
+} from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 
 export function EditorPage() {
 	const { id } = useParams<{ id: string }>();
@@ -44,8 +46,9 @@ export function EditorPage() {
 	// Dialog state
 	const [showNewPattern, setShowNewPattern] = useState(false);
 	const [showCommandPalette, setShowCommandPalette] = useState(false);
+	const [showExportDialog, setShowExportDialog] = useState(false);
 	const [isEditingName, setIsEditingName] = useState(false);
-	const [editName, setEditName] = useState('');
+	const [editName, setEditName] = useState("");
 	const nameInputRef = useRef<HTMLInputElement>(null);
 
 	// Store subscriptions
@@ -78,7 +81,7 @@ export function EditorPage() {
 				loadPattern(p);
 			}
 		} catch (error) {
-			console.error('[EditorPage] Failed to load pattern:', error);
+			console.error("[EditorPage] Failed to load pattern:", error);
 		}
 	}, [id, loadPattern]);
 
@@ -97,14 +100,14 @@ export function EditorPage() {
 				name: pattern.metadata.name,
 				craftType: pattern.metadata.craftType,
 				data,
-				thumbnail: '',
+				thumbnail: "",
 				updatedAt: Date.now(),
 				createdAt: pattern.metadata.createdAt,
 				version: pattern.metadata.version,
 			});
 			markSaved();
 		} catch (error) {
-			console.error('[EditorPage] Failed to save pattern:', error);
+			console.error("[EditorPage] Failed to save pattern:", error);
 		}
 	}, [pattern, markSaved]);
 
@@ -120,7 +123,7 @@ export function EditorPage() {
 	const handleFitToView = useCallback(() => {
 		// This is handled by GridCanvas internally via renderer.fitToView
 		// We emit a custom event that GridCanvas can listen for
-		window.dispatchEvent(new CustomEvent('patternforge:fit-to-view'));
+		window.dispatchEvent(new CustomEvent("patternforge:fit-to-view"));
 	}, []);
 
 	// Name editing
@@ -141,9 +144,9 @@ export function EditorPage() {
 
 	const handleNameKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (e.key === 'Enter') {
+			if (e.key === "Enter") {
 				handleNameSubmit();
-			} else if (e.key === 'Escape') {
+			} else if (e.key === "Escape") {
 				setIsEditingName(false);
 			}
 		},
@@ -153,29 +156,37 @@ export function EditorPage() {
 	// Keyboard shortcuts
 	const shortcuts = useMemo(
 		() => ({
-			'mod+z': () => undo(),
-			'mod+shift+z': () => redo(),
-			'mod+s': () => {
+			"mod+z": () => undo(),
+			"mod+shift+z": () => redo(),
+			"mod+s": () => {
 				handleSave();
 			},
-			p: () => setActiveTool('pencil'),
-			b: () => setActiveTool('brush'),
-			e: () => setActiveTool('eraser'),
-			g: () => setActiveTool('fill'),
-			l: () => setActiveTool('line'),
-			r: () => setActiveTool('rectangle'),
-			o: () => setActiveTool('ellipse'),
-			i: () => setActiveTool('color-picker'),
-			s: () => setActiveTool('selection'),
-			h: () => setActiveTool('pan'),
-			'mod+=': () => handleZoomIn(),
-			'mod+-': () => handleZoomOut(),
-			'mod+0': () => handleFitToView(),
-			'mod+k': () => setShowCommandPalette(true),
-			'=': () => handleZoomIn(),
-			'-': () => handleZoomOut(),
+			p: () => setActiveTool("pencil"),
+			b: () => setActiveTool("brush"),
+			e: () => setActiveTool("eraser"),
+			g: () => setActiveTool("fill"),
+			l: () => setActiveTool("line"),
+			r: () => setActiveTool("rectangle"),
+			o: () => setActiveTool("ellipse"),
+			i: () => setActiveTool("color-picker"),
+			s: () => setActiveTool("selection"),
+			h: () => setActiveTool("pan"),
+			"mod+=": () => handleZoomIn(),
+			"mod+-": () => handleZoomOut(),
+			"mod+0": () => handleFitToView(),
+			"mod+k": () => setShowCommandPalette(true),
+			"=": () => handleZoomIn(),
+			"-": () => handleZoomOut(),
 		}),
-		[undo, redo, handleSave, setActiveTool, handleZoomIn, handleZoomOut, handleFitToView],
+		[
+			undo,
+			redo,
+			handleSave,
+			setActiveTool,
+			handleZoomIn,
+			handleZoomOut,
+			handleFitToView,
+		],
 	);
 
 	useKeyboardShortcuts(shortcuts, !!pattern);
@@ -183,22 +194,110 @@ export function EditorPage() {
 	// Command palette items
 	const commandItems = useMemo<CommandItem[]>(
 		() => [
-			{ id: 'new-pattern', label: 'New Pattern', shortcut: '', icon: Plus, action: () => setShowNewPattern(true) },
-			{ id: 'save', label: 'Save', shortcut: 'Ctrl+S', icon: Save, action: handleSave },
-			{ id: 'undo', label: 'Undo', shortcut: 'Ctrl+Z', icon: Undo2, action: undo },
-			{ id: 'redo', label: 'Redo', shortcut: 'Ctrl+Shift+Z', icon: Redo2, action: redo },
-			{ id: 'zoom-in', label: 'Zoom In', shortcut: '+', icon: ZoomIn, action: handleZoomIn },
-			{ id: 'zoom-out', label: 'Zoom Out', shortcut: '-', icon: ZoomOut, action: handleZoomOut },
-			{ id: 'fit-view', label: 'Fit to View', shortcut: 'Ctrl+0', icon: Maximize2, action: handleFitToView },
-			{ id: 'toggle-grid', label: 'Toggle Grid Lines', icon: Grid3x3, action: () => setShowGridLines(!showGridLines) },
-			{ id: 'tool-pencil', label: 'Pencil Tool', shortcut: 'P', icon: Pencil, action: () => setActiveTool('pencil') },
-			{ id: 'tool-eraser', label: 'Eraser Tool', shortcut: 'E', action: () => setActiveTool('eraser') },
-			{ id: 'tool-fill', label: 'Fill Tool', shortcut: 'G', action: () => setActiveTool('fill') },
-			{ id: 'tool-brush', label: 'Brush Tool', shortcut: 'B', action: () => setActiveTool('brush') },
-			{ id: 'tool-picker', label: 'Color Picker', shortcut: 'I', action: () => setActiveTool('color-picker') },
-			{ id: 'tool-pan', label: 'Pan Tool', shortcut: 'H', action: () => setActiveTool('pan') },
+			{
+				id: "new-pattern",
+				label: "New Pattern",
+				shortcut: "",
+				icon: Plus,
+				action: () => setShowNewPattern(true),
+			},
+			{
+				id: "save",
+				label: "Save",
+				shortcut: "Ctrl+S",
+				icon: Save,
+				action: handleSave,
+			},
+			{
+				id: "undo",
+				label: "Undo",
+				shortcut: "Ctrl+Z",
+				icon: Undo2,
+				action: undo,
+			},
+			{
+				id: "redo",
+				label: "Redo",
+				shortcut: "Ctrl+Shift+Z",
+				icon: Redo2,
+				action: redo,
+			},
+			{
+				id: "zoom-in",
+				label: "Zoom In",
+				shortcut: "+",
+				icon: ZoomIn,
+				action: handleZoomIn,
+			},
+			{
+				id: "zoom-out",
+				label: "Zoom Out",
+				shortcut: "-",
+				icon: ZoomOut,
+				action: handleZoomOut,
+			},
+			{
+				id: "fit-view",
+				label: "Fit to View",
+				shortcut: "Ctrl+0",
+				icon: Maximize2,
+				action: handleFitToView,
+			},
+			{
+				id: "toggle-grid",
+				label: "Toggle Grid Lines",
+				icon: Grid3x3,
+				action: () => setShowGridLines(!showGridLines),
+			},
+			{
+				id: "tool-pencil",
+				label: "Pencil Tool",
+				shortcut: "P",
+				icon: Pencil,
+				action: () => setActiveTool("pencil"),
+			},
+			{
+				id: "tool-eraser",
+				label: "Eraser Tool",
+				shortcut: "E",
+				action: () => setActiveTool("eraser"),
+			},
+			{
+				id: "tool-fill",
+				label: "Fill Tool",
+				shortcut: "G",
+				action: () => setActiveTool("fill"),
+			},
+			{
+				id: "tool-brush",
+				label: "Brush Tool",
+				shortcut: "B",
+				action: () => setActiveTool("brush"),
+			},
+			{
+				id: "tool-picker",
+				label: "Color Picker",
+				shortcut: "I",
+				action: () => setActiveTool("color-picker"),
+			},
+			{
+				id: "tool-pan",
+				label: "Pan Tool",
+				shortcut: "H",
+				action: () => setActiveTool("pan"),
+			},
 		],
-		[handleSave, undo, redo, handleZoomIn, handleZoomOut, handleFitToView, showGridLines, setShowGridLines, setActiveTool],
+		[
+			handleSave,
+			undo,
+			redo,
+			handleZoomIn,
+			handleZoomOut,
+			handleFitToView,
+			showGridLines,
+			setShowGridLines,
+			setActiveTool,
+		],
 	);
 
 	// Empty state - no pattern loaded
@@ -206,7 +305,9 @@ export function EditorPage() {
 		return (
 			<div className="flex h-full flex-col bg-surface">
 				<header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
-					<h1 className="text-sm font-semibold text-text-primary">Pattern Editor</h1>
+					<h1 className="text-sm font-semibold text-text-primary">
+						Pattern Editor
+					</h1>
 					<button
 						type="button"
 						className="inline-flex items-center gap-1.5 rounded-md bg-craft-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-craft-700"
@@ -238,7 +339,10 @@ export function EditorPage() {
 						</button>
 					</div>
 				</main>
-				<NewPatternDialog open={showNewPattern} onClose={() => setShowNewPattern(false)} />
+				<NewPatternDialog
+					open={showNewPattern}
+					onClose={() => setShowNewPattern(false)}
+				/>
 			</div>
 		);
 	}
@@ -321,7 +425,16 @@ export function EditorPage() {
 					</button>
 				</div>
 
-				{/* Right: Save */}
+				{/* Right: Export + Save */}
+				<button
+					type="button"
+					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+					onClick={() => setShowExportDialog(true)}
+					disabled={!pattern}
+				>
+					<Download className="h-3.5 w-3.5" />
+					Export
+				</button>
 				<button
 					type="button"
 					className="inline-flex items-center gap-1.5 rounded-md bg-craft-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-craft-700"
@@ -340,9 +453,7 @@ export function EditorPage() {
 
 				{/* Center: Canvas */}
 				<div className="relative flex-1 overflow-hidden">
-					<GridCanvas
-						executeCommand={executeCommand}
-					/>
+					<GridCanvas executeCommand={executeCommand} />
 				</div>
 
 				{/* Right: Color palette */}
@@ -353,12 +464,22 @@ export function EditorPage() {
 			<StatusBar cursorPos={null} />
 
 			{/* Dialogs */}
-			<NewPatternDialog open={showNewPattern} onClose={() => setShowNewPattern(false)} />
+			<NewPatternDialog
+				open={showNewPattern}
+				onClose={() => setShowNewPattern(false)}
+			/>
 			<CommandPalette
 				open={showCommandPalette}
 				onClose={() => setShowCommandPalette(false)}
 				commands={commandItems}
 			/>
+			{pattern && (
+				<ExportDialog
+					open={showExportDialog}
+					onClose={() => setShowExportDialog(false)}
+					pattern={pattern}
+				/>
+			)}
 		</div>
 	);
 }

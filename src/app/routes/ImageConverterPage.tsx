@@ -1,117 +1,253 @@
-import { Image, Settings2, Palette, Maximize2, Waves } from "lucide-react";
+/**
+ * ImageConverterPage - Convert images to craft patterns.
+ *
+ * Layout: two-column on desktop (settings left, preview right),
+ * stacked on mobile (drop zone + settings top, preview bottom).
+ *
+ * Conversion flow:
+ * 1. User uploads image -> show preview
+ * 2. User adjusts settings -> re-process on change (debounced 300ms)
+ * 3. User clicks "Open in Editor" -> create pattern, navigate to /editor
+ * 4. User can also download as PNG
+ */
+
+import { processImage } from "@/engine/image/image-processor";
+import type { ProcessedImage } from "@/engine/image/image-processor";
+import {
+	ConverterSettings,
+	type ConverterSettingsState,
+} from "@/features/image-converter/components/ConverterSettings";
+import { ImageDropZone } from "@/features/image-converter/components/ImageDropZone";
+import { PatternPreview } from "@/features/image-converter/components/PatternPreview";
+import { usePatternStore } from "@/shared/stores/pattern-store";
+import { ArrowLeft } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const DEFAULT_SETTINGS: ConverterSettingsState = {
+	craftType: "cross-stitch",
+	gridWidth: 50,
+	gridHeight: 50,
+	lockAspectRatio: true,
+	maxColors: 30,
+	dithering: "floyd-steinberg",
+	confettiReduction: 50,
+};
+
+function extractImageData(dataUrl: string): Promise<ImageData> {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		img.onload = () => {
+			const canvas = document.createElement("canvas");
+			canvas.width = img.naturalWidth;
+			canvas.height = img.naturalHeight;
+			const ctx = canvas.getContext("2d");
+			if (!ctx) {
+				reject(new Error("Failed to get canvas 2D context"));
+				return;
+			}
+			ctx.drawImage(img, 0, 0);
+			const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+			resolve(imageData);
+		};
+		img.onerror = () => reject(new Error("Failed to load image"));
+		img.src = dataUrl;
+	});
+}
 
 export function ImageConverterPage() {
-  return (
-    <div className="flex h-full flex-col bg-surface">
-      {/* Header */}
-      <header className="border-b border-border px-6 py-4">
-        <h1 className="text-xl font-bold text-text-primary">
-          Image to Pattern
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Convert photos and artwork into craft patterns
-        </p>
-      </header>
+	const navigate = useNavigate();
+	const createPattern = usePatternStore((s) => s.createPattern);
+	const updateGrid = usePatternStore((s) => s.updateGrid);
+	const setPalette = usePatternStore((s) => s.setPalette);
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Main Content - Drop Zone */}
-        <main className="flex flex-1 items-center justify-center p-6">
-          <div className="w-full max-w-lg">
-            <div className="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-border-strong bg-surface-secondary p-12 text-center transition-colors hover:border-craft-400">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-craft-100 text-craft-600">
-                <Image className="h-8 w-8" />
-              </div>
-              <div>
-                <h2 className="mb-1 text-base font-semibold text-text-primary">
-                  Drop your image here
-                </h2>
-                <p className="text-sm text-text-secondary">
-                  or click to browse. Supports PNG, JPG, GIF, and SVG.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-lg bg-craft-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-craft-700"
-              >
-                Choose File
-              </button>
-              <p className="text-xs text-text-muted">
-                Maximum file size: 10 MB
-              </p>
-            </div>
-          </div>
-        </main>
+	const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+	const [settings, setSettings] =
+		useState<ConverterSettingsState>(DEFAULT_SETTINGS);
+	const [processedImage, setProcessedImage] = useState<ProcessedImage | null>(
+		null,
+	);
+	const [isProcessing, setIsProcessing] = useState(false);
 
-        {/* Settings Sidebar */}
-        <aside className="w-72 border-l border-border bg-surface-secondary p-4">
-          <div className="mb-6 flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-text-muted" />
-            <h2 className="text-sm font-semibold text-text-primary">
-              Conversion Settings
-            </h2>
-          </div>
+	// Debounce timer ref
+	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-          <div className="space-y-5">
-            {/* Craft Type */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                <Palette className="h-3.5 w-3.5" />
-                Craft Type
-              </label>
-              <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-muted">
-                Cross Stitch
-              </div>
-            </div>
+	// Cleanup debounce timer on unmount
+	useEffect(() => {
+		return () => {
+			if (debounceTimerRef.current) {
+				clearTimeout(debounceTimerRef.current);
+			}
+		};
+	}, []);
 
-            {/* Color Count */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                <Palette className="h-3.5 w-3.5" />
-                Color Count
-              </label>
-              <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-muted">
-                24 colors
-              </div>
-            </div>
+	// Process image whenever data URL or settings change (debounced)
+	useEffect(() => {
+		if (!imageDataUrl) {
+			setProcessedImage(null);
+			return;
+		}
 
-            {/* Pattern Size */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                <Maximize2 className="h-3.5 w-3.5" />
-                Pattern Size
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md border border-border bg-surface px-3 py-2 text-center text-sm text-text-muted">
-                  100 W
-                </div>
-                <div className="rounded-md border border-border bg-surface px-3 py-2 text-center text-sm text-text-muted">
-                  100 H
-                </div>
-              </div>
-            </div>
+		if (debounceTimerRef.current) {
+			clearTimeout(debounceTimerRef.current);
+		}
 
-            {/* Dithering */}
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-                <Waves className="h-3.5 w-3.5" />
-                Dithering
-              </label>
-              <div className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-muted">
-                Floyd-Steinberg
-              </div>
-            </div>
+		debounceTimerRef.current = setTimeout(async () => {
+			setIsProcessing(true);
+			try {
+				const imageData = await extractImageData(imageDataUrl);
+				const result = processImage(imageData, {
+					width: settings.gridWidth,
+					height: settings.gridHeight,
+					maxColors: settings.maxColors,
+					dithering: settings.dithering,
+					confettiReduction: settings.confettiReduction / 100,
+					colorSpace: "oklch",
+				});
+				setProcessedImage(result);
+			} catch (error) {
+				console.error("[ImageConverter] Processing failed:", error);
+				setProcessedImage(null);
+			} finally {
+				setIsProcessing(false);
+			}
+		}, 300);
 
-            {/* Convert Button */}
-            <button
-              type="button"
-              className="w-full rounded-lg bg-craft-600 py-2.5 text-sm font-medium text-white opacity-50 transition-colors"
-              disabled
-            >
-              Upload an image to convert
-            </button>
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
+		return () => {
+			if (debounceTimerRef.current) {
+				clearTimeout(debounceTimerRef.current);
+			}
+		};
+	}, [
+		imageDataUrl,
+		settings.gridWidth,
+		settings.gridHeight,
+		settings.maxColors,
+		settings.dithering,
+		settings.confettiReduction,
+	]);
+
+	// Handle image upload
+	const handleImageSelected = useCallback((dataUrl: string) => {
+		setImageDataUrl(dataUrl);
+	}, []);
+
+	// Handle image clear
+	const handleImageCleared = useCallback(() => {
+		setImageDataUrl(null);
+		setProcessedImage(null);
+	}, []);
+
+	// Open converted pattern in the editor
+	const handleOpenInEditor = useCallback(() => {
+		if (!processedImage) return;
+
+		const { cells, width, height, palette } = processedImage;
+
+		// Create a new empty pattern
+		const id = crypto.randomUUID();
+		createPattern("Converted Pattern", width, height, settings.craftType);
+
+		// Get the pattern from the store and populate cells
+		const storeState = usePatternStore.getState();
+		const pattern = storeState.pattern;
+		if (!pattern) return;
+
+		// Populate grid with converted cells
+		updateGrid((grid) => {
+			for (const cell of cells) {
+				grid.setCell(cell.row, cell.col, { color: cell.color });
+			}
+		});
+
+		// Build palette from converted colors
+		const paletteColors = palette.map((_color, index) => ({
+			id: `color-${index}`,
+			name: `Color ${index + 1}`,
+			hex: "", // Will be resolved by the palette system
+			oklch: { mode: "oklch" as const, l: 0, c: 0, h: 0 },
+			brand: null,
+			threadNumber: null,
+			symbol: null,
+		}));
+
+		setPalette({
+			id: `palette-${id}`,
+			name: "Converted Palette",
+			colors: paletteColors,
+		});
+
+		// Navigate to editor
+		navigate("/editor");
+	}, [
+		processedImage,
+		settings.craftType,
+		createPattern,
+		updateGrid,
+		setPalette,
+		navigate,
+	]);
+
+	const hasImage = imageDataUrl !== null;
+
+	return (
+		<div className="flex h-full flex-col bg-surface">
+			{/* Header */}
+			<header className="flex items-center justify-between border-b border-border px-6 py-4">
+				<div className="flex items-center gap-3">
+					<button
+						type="button"
+						onClick={() => navigate("/")}
+						className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+						title="Back to home"
+					>
+						<ArrowLeft className="h-4 w-4" />
+					</button>
+					<div>
+						<h1 className="text-xl font-bold text-text-primary">
+							Image to Pattern
+						</h1>
+						<p className="mt-0.5 text-sm text-text-secondary">
+							Convert photos and artwork into craft patterns
+						</p>
+					</div>
+				</div>
+			</header>
+
+			{/* Main content: two-column on desktop, stacked on mobile */}
+			<div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+				{/* Left column: Drop zone + Settings */}
+				<div className="flex flex-col overflow-y-auto border-r border-border lg:w-80 xl:w-96">
+					<div className="p-4">
+						<ImageDropZone
+							onImageSelected={handleImageSelected}
+							onImageCleared={handleImageCleared}
+							previewUrl={imageDataUrl}
+						/>
+					</div>
+
+					{hasImage && (
+						<div className="border-t border-border p-4">
+							<ConverterSettings
+								settings={settings}
+								onSettingsChange={setSettings}
+								disabled={!hasImage}
+							/>
+						</div>
+					)}
+				</div>
+
+				{/* Right column: Preview */}
+				<div className="flex flex-1 items-center justify-center overflow-auto p-6">
+					<div className="flex w-full max-w-3xl flex-col gap-4">
+						<PatternPreview
+							processedImage={processedImage}
+							isProcessing={isProcessing}
+							onOpenInEditor={handleOpenInEditor}
+						/>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
 }
