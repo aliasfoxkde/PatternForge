@@ -135,25 +135,25 @@
 - [x] Canvas component with mouse/touch interaction
 - [x] Tool palette component
 - [x] Color palette panel
-- [ ] Minimap component
+- [x] Minimap component
 - [x] Command palette (Ctrl+K)
-- [ ] Keyboard shortcut overlay
+- [x] Keyboard shortcut overlay
 - [x] New pattern dialog
-- [ ] Grid size controls
+- [x] Grid size controls
 
 ## Phase 5: Image to Pattern
 - [x] Image upload component (drag & drop, file picker, clipboard)
 - [x] Settings panel (colors, size, dithering, craft type)
 - [x] Real-time preview
-- [ ] Before/after comparison
+- [x] Before/after comparison
 
 ## Phase 6: Import/Export
 - [x] PNG export
 - [x] SVG export
 - [x] PDF export (jsPDF)
 - [x] JSON import/export
-- [ ] CSV import/export
-- [ ] Print support
+- [x] CSV import/export
+- [x] Print support
 
 ## Phase 7: Written Instructions
 - [x] Knitting instructions generator
@@ -183,7 +183,7 @@
 ## Progress Summary
 
 - **Total Tasks**: 85
-- **Completed**: 82
+- **Completed**: 85
 - **In Progress**: 0
-- **Pending**: 3
-- **Completion**: 96%
+- **Pending**: 0
+- **Completion**: 100%
