@@ -25,7 +25,7 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 	const [cursorPos, setCursorPos] = useState<GridPosition | null>(null);
 
-	// Drawing state
+	// Drawing state refs (not state to avoid re-renders during drawing)
 	const isDrawingRef = useRef(false);
 	const isPanningRef = useRef(false);
 	const lastGridPosRef = useRef<GridPosition | null>(null);
@@ -43,13 +43,15 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 	const mirrorHorizontal = useEditorStore((s) => s.mirrorHorizontal);
 	const mirrorVertical = useEditorStore((s) => s.mirrorVertical);
 	const fillTolerance = useEditorStore((s) => s.fillTolerance);
+	const shapeFilled = useEditorStore((s) => s.shapeFilled);
 	const setActiveColor = useEditorStore((s) => s.setActiveColor);
 	const setZoom = useEditorStore((s) => s.setZoom);
 	const showGridLines = useSettingsStore((s) => s.showGridLines);
 	const showCoordinates = useSettingsStore((s) => s.showCoordinates);
 	const majorGridInterval = useSettingsStore((s) => s.majorGridInterval);
 
-	// Render the grid
+	// ---- Render the grid ----------------------------------------------------
+
 	const render = useCallback(() => {
 		const renderer = rendererRef.current;
 		const grid = pattern?.grid;
@@ -67,7 +69,8 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		}
 	}, [pattern?.grid, showGridLines, showCoordinates, majorGridInterval, cursorPos, activeTool]);
 
-	// Animation loop
+	// ---- Animation loop -----------------------------------------------------
+
 	useEffect(() => {
 		let running = true;
 
@@ -85,7 +88,8 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		};
 	}, [render]);
 
-	// Initialize renderer on mount
+	// ---- Initialize renderer on mount --------------------------------------
+
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
@@ -93,7 +97,6 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		const renderer = new CanvasRenderer(canvas);
 		rendererRef.current = renderer;
 
-		// Fit to view once pattern is available
 		if (pattern?.grid) {
 			renderer.fitToView(pattern.grid.width, pattern.grid.height);
 		}
@@ -102,17 +105,16 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			renderer.destroy();
 			rendererRef.current = null;
 		};
-		// Only run on mount
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Fit to view when pattern changes
+	// ---- Fit to view when pattern changes -----------------------------------
+
 	useEffect(() => {
 		const renderer = rendererRef.current;
 		const grid = pattern?.grid;
 		if (!renderer || !grid) return;
 
-		// Small delay to ensure canvas has been sized
 		const timer = setTimeout(() => {
 			renderer.fitToView(grid.width, grid.height);
 			const viewport = renderer.getViewport();
@@ -122,7 +124,8 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		return () => clearTimeout(timer);
 	}, [pattern?.id, setZoom]);
 
-	// ResizeObserver for container
+	// ---- ResizeObserver for container ---------------------------------------
+
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
@@ -138,96 +141,105 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		return () => observer.disconnect();
 	}, []);
 
-	// Apply a single tool action at a grid position
-	const applyToolAt = useCallback(
-		(pos: GridPosition, isStart: boolean) => {
-			const grid = pattern?.grid;
-			if (!grid) return;
+	// ---- Apply tool at grid position ----------------------------------------
 
-			let result: ToolResult;
+	/**
+	 * Apply the active tool at the given grid position.
+	 * Returns the tool result (cells to modify).
+	 */
+	const applyToolAt = useCallback(
+		(pos: GridPosition, isStart: boolean): ToolResult | null => {
+			const grid = pattern?.grid;
+			if (!grid) return null;
+
+			const color = activeColor;
+			const symbol = activeSymbol;
 
 			switch (activeTool) {
 				case 'pencil': {
-					result = DrawingTools.pencil(grid, pos, activeColor, activeSymbol);
-					break;
+					return DrawingTools.pencil(grid, pos, color, symbol);
 				}
 				case 'brush': {
-					result = DrawingTools.brush(grid, pos, activeColor, activeSymbol, brushSize, 'round');
-					break;
+					return DrawingTools.brush(grid, pos, color, symbol, brushSize, 'round');
 				}
 				case 'eraser': {
-					result = DrawingTools.eraser(grid, pos, brushSize);
-					break;
+					return DrawingTools.eraser(grid, pos, brushSize);
 				}
 				case 'fill': {
-					if (!isStart) return; // Only fill on initial click
-					result = DrawingTools.fill(grid, pos, activeColor, activeSymbol, fillTolerance);
-					break;
+					if (!isStart) return null;
+					return DrawingTools.fill(grid, pos, color, symbol, fillTolerance);
 				}
 				case 'color-picker': {
-					if (!isStart) return;
+					if (!isStart) return null;
 					const cell = grid.getCell(pos.row, pos.col);
 					if (cell?.color) {
 						setActiveColor(cell.color);
 					}
-					return;
+					return null;
+				}
+				case 'line': {
+					if (!shapeStartRef.current) return null;
+					return DrawingTools.line(shapeStartRef.current, pos, color, symbol);
+				}
+				case 'rectangle': {
+					if (!shapeStartRef.current) return null;
+					return DrawingTools.rectangle(shapeStartRef.current, pos, color, symbol, shapeFilled);
+				}
+				case 'ellipse': {
+					if (!shapeStartRef.current) return null;
+					return DrawingTools.ellipse(shapeStartRef.current, pos, color, symbol, shapeFilled);
 				}
 				default:
-					return;
+					return null;
 			}
-
-			// Apply mirror if enabled
-			if (mirrorHorizontal || mirrorVertical) {
-				result = DrawingTools.mirror(
-					result,
-					grid.width,
-					grid.height,
-					mirrorHorizontal,
-					mirrorVertical,
-				);
-			}
-
-			// For continuous drawing (pencil, brush, eraser), apply immediately
-			if (isStart) {
-				pendingChangesRef.current = [...result.cells];
-			} else {
-				pendingChangesRef.current.push(...result.cells);
-			}
-
-			// Apply changes directly to grid for visual feedback
-			for (const entry of result.cells) {
-				if (entry.data.color === null && entry.data.symbol === null) {
-					grid.clearCell(entry.row, entry.col);
-				} else {
-					grid.setCell(entry.row, entry.col, entry.data);
-				}
-			}
-
-			// Notify store of mutation (without creating a history entry for continuous strokes)
-			usePatternStore.getState().updateGrid(() => {});
 		},
-		[pattern?.grid, activeTool, activeColor, activeSymbol, brushSize, fillTolerance, mirrorHorizontal, mirrorVertical, setActiveColor],
+		[pattern?.grid, activeTool, activeColor, activeSymbol, brushSize, fillTolerance, shapeFilled, setActiveColor],
 	);
 
-	// Commit a drawing stroke to history
+	// ---- Commit pending changes to the store --------------------------------
+
 	const commitStroke = useCallback(() => {
 		if (pendingChangesRef.current.length === 0) return;
 
 		const grid = pattern?.grid;
 		if (!grid) return;
 
-		executeCommand(
-			{ cells: pendingChangesRef.current },
+		// Apply changes to the grid
+		for (const change of pendingChangesRef.current) {
+			if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
+			grid.setCell(change.row, change.col, change.data);
+		}
+
+		// Create a tool result and execute command for undo/redo
+		const result: ToolResult = { cells: [...pendingChangesRef.current] };
+
+		// Apply mirroring if enabled
+		const finalResult = DrawingTools.mirror(
+			result,
 			grid.width,
 			grid.height,
+			mirrorHorizontal,
+			mirrorVertical,
 		);
-		pendingChangesRef.current = [];
-	}, [pattern?.grid, executeCommand]);
 
-	// Get mouse position relative to canvas
-	const getCanvasPos = useCallback((e: React.MouseEvent): { x: number; y: number } => {
+		// Apply mirrored changes too
+		for (const change of finalResult.cells) {
+			if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
+			grid.setCell(change.row, change.col, change.data);
+		}
+
+		executeCommand(finalResult, grid.width, grid.height);
+		pendingChangesRef.current = [];
+
+		// Trigger re-render by updating the pattern store
+		usePatternStore.getState().updateGrid(() => {});
+	}, [pattern?.grid, mirrorHorizontal, mirrorVertical, executeCommand]);
+
+	// ---- Get canvas-space coordinates from a mouse event --------------------
+
+	const getCanvasPos = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
 		const canvas = canvasRef.current;
-		if (!canvas) return { x: 0, y: 0 };
+		if (!canvas) return null;
 		const rect = canvas.getBoundingClientRect();
 		return {
 			x: e.clientX - rect.left,
@@ -235,48 +247,50 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		};
 	}, []);
 
-	// Mouse event handlers
+	// ---- Mouse event handlers -----------------------------------------------
+
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
-			const { x, y } = getCanvasPos(e);
+			const pos = getCanvasPos(e);
+			if (!pos) return;
 
-			// Middle mouse button → pan
-			if (e.button === 1) {
+			const gridPos = renderer.screenToGrid(pos.x, pos.y);
+
+			// Middle mouse or space+click = pan
+			if (e.button === 1 || (e.button === 0 && activeTool === 'pan')) {
+				isPanningRef.current = true;
+				panStartRef.current = {
+					x: pos.x,
+					y: pos.y,
+					offsetX: renderer.getViewport().offsetX,
+					offsetY: renderer.getViewport().offsetY,
+				};
 				e.preventDefault();
-				isPanningRef.current = true;
-				const viewport = renderer.getViewport();
-				panStartRef.current = { x, y, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
 				return;
 			}
 
-			if (e.button !== 0) return;
-
-			// Pan tool
-			if (activeTool === 'pan') {
-				isPanningRef.current = true;
-				const viewport = renderer.getViewport();
-				panStartRef.current = { x, y, offsetX: viewport.offsetX, offsetY: viewport.offsetY };
-				return;
-			}
-
-			const gridPos = renderer.screenToGrid(x, y);
-			if (!gridPos) return;
-
-			// Selection tool
-			if (activeTool === 'selection') {
-				shapeStartRef.current = gridPos;
-				return;
-			}
+			if (e.button !== 0 || !gridPos) return;
 
 			// Start drawing
 			isDrawingRef.current = true;
 			lastGridPosRef.current = gridPos;
-			applyToolAt(gridPos, true);
+
+			// Shape tools store the start position
+			if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
+				shapeStartRef.current = gridPos;
+				return;
+			}
+
+			// Apply tool immediately at start position
+			const result = applyToolAt(gridPos, true);
+			if (result) {
+				pendingChangesRef.current.push(...result.cells);
+			}
 		},
-		[activeTool, getCanvasPos, applyToolAt],
+		[activeTool, applyToolAt, getCanvasPos],
 	);
 
 	const handleMouseMove = useCallback(
@@ -284,14 +298,16 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
-			const { x, y } = getCanvasPos(e);
-			const gridPos = renderer.screenToGrid(x, y);
+			const pos = getCanvasPos(e);
+			if (!pos) return;
+
+			const gridPos = renderer.screenToGrid(pos.x, pos.y);
 			setCursorPos(gridPos);
 
 			// Panning
 			if (isPanningRef.current && panStartRef.current) {
-				const dx = x - panStartRef.current.x;
-				const dy = y - panStartRef.current.y;
+				const dx = pos.x - panStartRef.current.x;
+				const dy = pos.y - panStartRef.current.y;
 				renderer.setOffset(
 					panStartRef.current.offsetX + dx,
 					panStartRef.current.offsetY + dy,
@@ -301,110 +317,175 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 			// Drawing
 			if (isDrawingRef.current && gridPos) {
-				// Use Bresenham interpolation for smooth strokes
+				// For shape tools, we don't accumulate during drag — shape preview is visual only
+				if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
+					// Shape preview rendered via cursor overlay — no pending changes until mouse up
+					return;
+				}
+
+				// For freeform tools (pencil, brush, eraser), draw along the path
 				if (lastGridPosRef.current) {
 					const lineResult = DrawingTools.line(lastGridPosRef.current, gridPos, activeColor, activeSymbol);
 					for (const entry of lineResult.cells) {
-						const grid = pattern?.grid;
-						if (!grid) break;
+						// For eraser, override the data
 						if (activeTool === 'eraser') {
-							grid.clearCell(entry.row, entry.col);
+							pendingChangesRef.current.push({
+								row: entry.row,
+								col: entry.col,
+								data: { color: null, symbol: null },
+							});
 						} else {
-							grid.setCell(entry.row, entry.col, { color: activeColor, symbol: activeSymbol });
+							pendingChangesRef.current.push({
+								row: entry.row,
+								col: entry.col,
+								data: entry.data,
+							});
 						}
-						pendingChangesRef.current.push(entry);
+					}
+				}
+
+				// Apply immediately for visual feedback
+				const grid = pattern?.grid;
+				if (grid) {
+					for (const change of pendingChangesRef.current) {
+						if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
+						grid.setCell(change.row, change.col, change.data);
 					}
 					usePatternStore.getState().updateGrid(() => {});
 				}
+
 				lastGridPosRef.current = gridPos;
 			}
 		},
-		[getCanvasPos, activeTool, activeColor, activeSymbol, pattern?.grid],
+		[activeTool, activeColor, activeSymbol, applyToolAt, pattern?.grid, getCanvasPos],
 	);
 
-	const handleMouseUp = useCallback(() => {
-		if (isDrawingRef.current) {
-			commitStroke();
-		}
-		isDrawingRef.current = false;
-		isPanningRef.current = false;
-		lastGridPosRef.current = null;
-		panStartRef.current = null;
-	}, [commitStroke]);
+	const handleMouseUp = useCallback(
+		(e: React.MouseEvent) => {
+			const renderer = rendererRef.current;
 
-	// Wheel zoom
+			// End panning
+			if (isPanningRef.current) {
+				isPanningRef.current = false;
+				panStartRef.current = null;
+				return;
+			}
+
+			if (!isDrawingRef.current) return;
+			isDrawingRef.current = false;
+
+			// For shape tools, compute the final shape
+			if (shapeStartRef.current && renderer) {
+				const pos = getCanvasPos(e);
+				if (pos) {
+					const gridPos = renderer.screenToGrid(pos.x, pos.y);
+					if (gridPos) {
+						const result = applyToolAt(gridPos, true);
+						if (result) {
+							pendingChangesRef.current.push(...result.cells);
+						}
+					}
+				}
+				shapeStartRef.current = null;
+			}
+
+			// Commit all pending changes
+			commitStroke();
+			lastGridPosRef.current = null;
+		},
+		[applyToolAt, commitStroke, getCanvasPos],
+	);
+
+	// ---- Wheel zoom ---------------------------------------------------------
+
 	const handleWheel = useCallback(
 		(e: React.WheelEvent) => {
+			e.preventDefault();
+
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
-			e.preventDefault();
-			const { x, y } = getCanvasPos(e);
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+
+			const rect = canvas.getBoundingClientRect();
+			const mouseX = e.clientX - rect.left;
+			const mouseY = e.clientY - rect.top;
 
 			const viewport = renderer.getViewport();
-			const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+			const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
 			const newZoom = Math.max(0.1, Math.min(10, viewport.zoom * zoomFactor));
 
-			// Zoom centered on mouse position
-			const offsetX = x - (x - viewport.offsetX) * (newZoom / viewport.zoom);
-			const offsetY = y - (y - viewport.offsetY) * (newZoom / viewport.zoom);
+			// Zoom toward mouse position
+			const scale = newZoom / viewport.zoom;
+			const newOffsetX = mouseX - (mouseX - viewport.offsetX) * scale;
+			const newOffsetY = mouseY - (mouseY - viewport.offsetY) * scale;
 
 			renderer.setZoom(newZoom);
-			renderer.setOffset(offsetX, offsetY);
+			renderer.setOffset(newOffsetX, newOffsetY);
 			setZoom(newZoom);
 		},
-		[getCanvasPos, setZoom],
+		[setZoom],
 	);
 
-	// Touch event handlers
+	// ---- Touch event handlers -----------------------------------------------
+
 	const handleTouchStart = useCallback(
 		(e: React.TouchEvent) => {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+
+			// Two-finger touch = pan/zoom
 			if (e.touches.length === 2) {
-				// Two-finger: start pinch/pan
 				isPanningRef.current = true;
+				isDrawingRef.current = false;
 				const dx = e.touches[0]!.clientX - e.touches[1]!.clientX;
 				const dy = e.touches[0]!.clientY - e.touches[1]!.clientY;
 				const dist = Math.sqrt(dx * dx + dy * dy);
 				const cx = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
 				const cy = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
-
-				const rect = canvasRef.current?.getBoundingClientRect();
-				if (rect) {
-					const viewport = renderer.getViewport();
-					touchStartRef.current = {
-						x: cx - rect.left,
-						y: cy - rect.top,
-						dist,
-					};
-					panStartRef.current = {
-						x: cx - rect.left,
-						y: cy - rect.top,
-						offsetX: viewport.offsetX,
-						offsetY: viewport.offsetY,
-					};
-				}
+				const rect = canvas.getBoundingClientRect();
+				touchStartRef.current = {
+					x: cx - rect.left,
+					y: cy - rect.top,
+					dist,
+				};
+				panStartRef.current = {
+					x: cx - rect.left,
+					y: cy - rect.top,
+					offsetX: renderer.getViewport().offsetX,
+					offsetY: renderer.getViewport().offsetY,
+				};
 				return;
 			}
 
+			// Single finger = draw
 			if (e.touches.length === 1) {
 				const touch = e.touches[0]!;
-				const rect = canvasRef.current?.getBoundingClientRect();
-				if (!rect) return;
-
+				const rect = canvas.getBoundingClientRect();
 				const x = touch.clientX - rect.left;
 				const y = touch.clientY - rect.top;
 				const gridPos = renderer.screenToGrid(x, y);
+
 				if (!gridPos) return;
 
 				isDrawingRef.current = true;
 				lastGridPosRef.current = gridPos;
-				applyToolAt(gridPos, true);
+
+				if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
+					shapeStartRef.current = gridPos;
+				} else {
+					const result = applyToolAt(gridPos, true);
+					if (result) {
+						pendingChangesRef.current.push(...result.cells);
+					}
+				}
 			}
 		},
-		[applyToolAt],
+		[activeTool, applyToolAt],
 	);
 
 	const handleTouchMove = useCallback(
@@ -412,22 +493,21 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+
+			// Two-finger: pan + pinch zoom
 			if (e.touches.length === 2 && touchStartRef.current && panStartRef.current) {
 				e.preventDefault();
-
 				const dx = e.touches[0]!.clientX - e.touches[1]!.clientX;
 				const dy = e.touches[0]!.clientY - e.touches[1]!.clientY;
 				const dist = Math.sqrt(dx * dx + dy * dy);
 				const cx = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
 				const cy = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
-
-				const rect = canvasRef.current?.getBoundingClientRect();
-				if (!rect) return;
-
+				const rect = canvas.getBoundingClientRect();
 				const x = cx - rect.left;
 				const y = cy - rect.top;
 
-				// Pinch zoom
 				const scale = dist / touchStartRef.current.dist;
 				const viewport = renderer.getViewport();
 				const newZoom = Math.max(0.1, Math.min(10, viewport.zoom * scale));
@@ -439,40 +519,58 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				renderer.setOffset(offsetX, offsetY);
 				setZoom(newZoom);
 
-				// Update start for continuous pan
 				touchStartRef.current = { x, y, dist };
 				panStartRef.current = { x, y, offsetX, offsetY };
 				return;
 			}
 
+			// Single finger: draw
 			if (e.touches.length === 1 && isDrawingRef.current) {
 				e.preventDefault();
 				const touch = e.touches[0]!;
-				const rect = canvasRef.current?.getBoundingClientRect();
-				if (!rect) return;
-
+				const rect = canvas.getBoundingClientRect();
 				const x = touch.clientX - rect.left;
 				const y = touch.clientY - rect.top;
 				const gridPos = renderer.screenToGrid(x, y);
 
-				if (gridPos && lastGridPosRef.current) {
-					const lineResult = DrawingTools.line(lastGridPosRef.current, gridPos, activeColor, activeSymbol);
-					for (const entry of lineResult.cells) {
-						const grid = pattern?.grid;
-						if (!grid) break;
-						if (activeTool === 'eraser') {
-							grid.clearCell(entry.row, entry.col);
-						} else {
-							grid.setCell(entry.row, entry.col, { color: activeColor, symbol: activeSymbol });
-						}
-						pendingChangesRef.current.push(entry);
+				if (!gridPos || !lastGridPosRef.current) return;
+
+				if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
+					// Shape preview only
+					return;
+				}
+
+				const lineResult = DrawingTools.line(lastGridPosRef.current, gridPos, activeColor, activeSymbol);
+				for (const entry of lineResult.cells) {
+					if (activeTool === 'eraser') {
+						pendingChangesRef.current.push({
+							row: entry.row,
+							col: entry.col,
+							data: { color: null, symbol: null },
+						});
+					} else {
+						pendingChangesRef.current.push({
+							row: entry.row,
+							col: entry.col,
+							data: entry.data,
+						});
+					}
+				}
+
+				// Apply immediately for visual feedback
+				const grid = pattern?.grid;
+				if (grid) {
+					for (const change of pendingChangesRef.current) {
+						if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
+						grid.setCell(change.row, change.col, change.data);
 					}
 					usePatternStore.getState().updateGrid(() => {});
-					lastGridPosRef.current = gridPos;
 				}
+
+				lastGridPosRef.current = gridPos;
 			}
 		},
-		[activeColor, activeSymbol, activeTool, pattern?.grid, setZoom],
+		[activeTool, activeColor, activeSymbol, pattern?.grid, setZoom],
 	);
 
 	const handleTouchEnd = useCallback(() => {
@@ -484,14 +582,22 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		lastGridPosRef.current = null;
 		panStartRef.current = null;
 		touchStartRef.current = null;
+		shapeStartRef.current = null;
 	}, [commitStroke]);
 
-	// Context menu prevention
+	// ---- Context menu prevention --------------------------------------------
+
 	const handleContextMenu = useCallback((e: React.MouseEvent) => {
 		e.preventDefault();
 	}, []);
 
-	const canvasCursor = activeTool === 'pan' ? 'grab' : 'crosshair';
+	// ---- Determine cursor style ---------------------------------------------
+
+	const canvasCursor = activeTool === 'pan'
+		? isPanningRef.current ? 'grabbing' : 'grab'
+		: 'crosshair';
+
+	// ---- Render JSX ---------------------------------------------------------
 
 	return (
 		<div ref={containerRef} className="relative h-full w-full overflow-hidden bg-surface-tertiary">
