@@ -1,9 +1,11 @@
 /**
  * StatusBar - Bottom status bar for the editor.
  *
- * Shows cursor position, grid dimensions, and zoom level.
+ * Shows cursor position, grid dimensions, zoom level, and row counter.
  */
 
+import { RowCounter } from '@/features/progress/components/RowCounter';
+import { useProgressStore } from '@/features/progress/progress-store';
 import { usePatternStore } from '@/shared/stores/pattern-store';
 import { useEditorStore } from '@/shared/stores/editor-store';
 
@@ -14,6 +16,8 @@ export interface StatusBarProps {
 export function StatusBar({ cursorPos }: StatusBarProps) {
 	const pattern = usePatternStore((s) => s.pattern);
 	const zoom = useEditorStore((s) => s.zoom);
+	const currentRow = useProgressStore((s) => s.currentRow);
+	const setCurrentRow = useProgressStore((s) => s.setCurrentRow);
 
 	const gridWidth = pattern?.grid.width ?? 0;
 	const gridHeight = pattern?.grid.height ?? 0;
@@ -27,6 +31,13 @@ export function StatusBar({ cursorPos }: StatusBarProps) {
 			</span>
 			<span>{gridWidth} x {gridHeight}</span>
 			<span>{Math.round(zoom * 100)}%</span>
+			{pattern && (
+				<RowCounter
+					totalRows={gridHeight}
+					currentRow={currentRow}
+					onRowChange={setCurrentRow}
+				/>
+			)}
 		</div>
 	);
 }

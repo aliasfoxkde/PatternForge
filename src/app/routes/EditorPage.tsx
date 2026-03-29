@@ -18,6 +18,8 @@ import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog"
 import { StatusBar } from "@/features/editor/components/StatusBar";
 import { ToolPalette } from "@/features/editor/components/ToolPalette";
 import { ExportDialog } from "@/features/export/components/ExportDialog";
+import { InstructionsPanel } from "@/features/instructions/components/InstructionsPanel";
+import { ProgressPanel } from "@/features/progress/components/ProgressPanel";
 import { useAutoSave } from "@/shared/hooks/use-auto-save";
 import { useHistoryManager } from "@/shared/hooks/use-history-manager";
 import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";
@@ -26,7 +28,9 @@ import { useEditorStore } from "@/shared/stores/editor-store";
 import { usePatternStore } from "@/shared/stores/pattern-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import {
+	BarChart3,
 	Download,
+	FileText,
 	Grid3x3,
 	Maximize2,
 	Pencil,
@@ -47,6 +51,8 @@ export function EditorPage() {
 	const [showNewPattern, setShowNewPattern] = useState(false);
 	const [showCommandPalette, setShowCommandPalette] = useState(false);
 	const [showExportDialog, setShowExportDialog] = useState(false);
+	const [showInstructionsDialog, setShowInstructionsDialog] = useState(false);
+	const [showProgressPanel, setShowProgressPanel] = useState(false);
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editName, setEditName] = useState("");
 	const nameInputRef = useRef<HTMLInputElement>(null);
@@ -425,7 +431,7 @@ export function EditorPage() {
 					</button>
 				</div>
 
-				{/* Right: Export + Save */}
+				{/* Right: Export + Progress + Save */}
 				<button
 					type="button"
 					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
@@ -434,6 +440,28 @@ export function EditorPage() {
 				>
 					<Download className="h-3.5 w-3.5" />
 					Export
+				</button>
+				<button
+					type="button"
+					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+					onClick={() => setShowInstructionsDialog(true)}
+					disabled={!pattern}
+				>
+					<FileText className="h-3.5 w-3.5" />
+					Instructions
+				</button>
+				<button
+					type="button"
+					className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+						showProgressPanel
+							? "bg-craft-600 text-white"
+							: "border border-border text-text-secondary hover:bg-surface-tertiary hover:text-text-primary"
+					}`}
+					onClick={() => setShowProgressPanel((v) => !v)}
+					disabled={!pattern}
+				>
+					<BarChart3 className="h-3.5 w-3.5" />
+					Progress
 				</button>
 				<button
 					type="button"
@@ -480,6 +508,17 @@ export function EditorPage() {
 					pattern={pattern}
 				/>
 			)}
+			{pattern && (
+				<InstructionsPanel
+					open={showInstructionsDialog}
+					onClose={() => setShowInstructionsDialog(false)}
+					pattern={pattern}
+				/>
+			)}
+			<ProgressPanel
+				open={showProgressPanel}
+				onClose={() => setShowProgressPanel(false)}
+			/>
 		</div>
 	);
 }
