@@ -1,0 +1,18 @@
+name = "patternforge"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+APP_NAME = "PatternForge"
+APP_URL = "https://patternforge.pages.dev"
+
+# D1 database for shared patterns
+[[d1_databases]]
+binding = "DB"
+database_name = "patternforge-db"
+database_id = "placeholder-will-be-set-on-first-deploy"
+
+# R2 bucket for image uploads
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "patternforge-images"

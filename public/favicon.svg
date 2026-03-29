@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="6" fill="#7c3aed"/>
+  <path d="M8 8h4v4H8zM12 8h4v4h-4zM16 8h4v4h-4zM20 8h4v4h-4zM8 12h4v4H8zM12 12h4v4h-4zM16 12h4v4h-4zM20 12h4v4h-4zM8 16h4v4H8zM12 16h4v4h-4zM16 16h4v4h-4zM20 16h4v4h-4zM8 20h4v4H8zM12 20h4v4h-4zM16 20h4v4h-4zM20 20h4v4h-4z" fill="#f3e8ff" opacity="0.6"/>
+  <path d="M10 10h2v2h-2zM14 10h2v2h-2zM18 10h2v2h-2zM10 14h2v2h-2zM14 14h2v2h-2zM18 14h2v2h-2zM10 18h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="#e9d5ff" opacity="0.9"/>
+  <path d="M12 12h2v2h-2zM16 12h2v2h-2zM12 16h2v2h-2zM16 16h2v2h-2z" fill="#faf5ff"/>
+  <!-- Needle -->
+  <path d="M22 6l2 2-12 12-2-2z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>
+  <circle cx="24" cy="5" r="1" fill="none" stroke="#f59e0b" stroke-width="0.8"/>
+</svg>
