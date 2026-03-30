@@ -13,6 +13,7 @@
 
 import { processImage } from "@/engine/image/image-processor";
 import type { ProcessedImage } from "@/engine/image/image-processor";
+import { useToast } from "@/shared/hooks/use-toast";
 import {
 	ConverterSettings,
 	type ConverterSettingsState,
@@ -60,6 +61,7 @@ export function ImageConverterPage() {
 	const createPattern = usePatternStore((s) => s.createPattern);
 	const updateGrid = usePatternStore((s) => s.updateGrid);
 	const setPalette = usePatternStore((s) => s.setPalette);
+	const toast = useToast();
 
 	const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 	const [settings, setSettings] =
@@ -107,6 +109,7 @@ export function ImageConverterPage() {
 				setProcessedImage(result);
 			} catch (error) {
 				console.error("[ImageConverter] Processing failed:", error);
+				toast.error("Image processing failed. Try adjusting settings.");
 				setProcessedImage(null);
 			} finally {
 				setIsProcessing(false);

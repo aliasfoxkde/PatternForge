@@ -5,7 +5,7 @@
  */
 
 import type { ToolType } from "@/engine/tools/tools";
-import type { StitchType } from "@/engine/grid/grid";
+import type { Cell, StitchType } from "@/engine/grid/grid";
 import { create } from "zustand";
 
 export interface SelectionRect {
@@ -48,6 +48,11 @@ interface EditorState {
 	selectionRect: SelectionRect | null;
 	setSelectionRect: (rect: SelectionRect | null) => void;
 
+	// -- Clipboard --
+
+	clipboard: Cell[] | null;
+	setClipboard: (cells: Cell[] | null) => void;
+
 	// -- Viewport --
 
 	zoom: number;
@@ -69,6 +74,11 @@ interface EditorState {
 	showShortcuts: boolean;
 	setShowShortcuts: (show: boolean) => void;
 	toggleShortcuts: () => void;
+
+	// -- Text tool --
+
+	textEditing: boolean;
+	setTextEditing: (editing: boolean) => void;
 }
 
 const MIN_ZOOM = 0.1;
@@ -107,6 +117,10 @@ export const useEditorStore = create<EditorState>()((set) => ({
 	selectionRect: null,
 	setSelectionRect: (rect) => set({ selectionRect: rect }),
 
+	// Clipboard
+	clipboard: null,
+	setClipboard: (cells) => set({ clipboard: cells }),
+
 	// Viewport
 	zoom: 1,
 	setZoom: (zoom) =>
@@ -127,4 +141,8 @@ export const useEditorStore = create<EditorState>()((set) => ({
 	setShowShortcuts: (show) => set({ showShortcuts: show }),
 	toggleShortcuts: () =>
 		set((state) => ({ showShortcuts: !state.showShortcuts })),
+
+	// Text tool
+	textEditing: false,
+	setTextEditing: (editing) => set({ textEditing: editing }),
 }));

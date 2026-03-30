@@ -11,6 +11,8 @@ import { DrawingTools, type ToolResult } from '@/engine/tools/tools';
 import { useEditorStore } from '@/shared/stores/editor-store';
 import { usePatternStore } from '@/shared/stores/pattern-store';
 import { useSettingsStore } from '@/shared/stores/settings-store';
+import { SelectionToolbar } from './SelectionToolbar';
+import { TextInput } from './TextInput';
 import type { Cell } from '@/engine/grid/grid';
 
 export interface GridCanvasProps {
@@ -24,6 +26,9 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	const [cursorPos, setCursorPos] = useState<GridPosition | null>(null);
+
+	// Text tool state
+	const [textInputPos, setTextInputPos] = useState<{ x: number; y: number; row: number; col: number } | null>(null);
 
 	// Drawing state refs (not state to avoid re-renders during drawing)
 	const isDrawingRef = useRef(false);
@@ -47,8 +52,13 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 	const activeStitchType = useEditorStore((s) => s.activeStitchType);
 	const selectionRect = useEditorStore((s) => s.selectionRect);
 	const setSelectionRect = useEditorStore((s) => s.setSelectionRect);
+	const clipboard = useEditorStore((s) => s.clipboard);
+	const setClipboard = useEditorStore((s) => s.setClipboard);
 	const setActiveColor = useEditorStore((s) => s.setActiveColor);
 	const setZoom = useEditorStore((s) => s.setZoom);
+	const updateGrid = usePatternStore((s) => s.updateGrid);
+	const textEditing = useEditorStore((s) => s.textEditing);
+	const setTextEditing = useEditorStore((s) => s.setTextEditing);
 	const showGridLines = useSettingsStore((s) => s.showGridLines);
 	const showCoordinates = useSettingsStore((s) => s.showCoordinates);
 	const majorGridInterval = useSettingsStore((s) => s.majorGridInterval);
@@ -282,6 +292,14 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			}
 
 			if (e.button !== 0 || !gridPos) return;
+
+			// Text tool — show text input at clicked cell
+			if (activeTool === 'text') {
+				const screenPos = renderer.gridToScreen(gridPos.row, gridPos.col);
+				setTextInputPos({ x: screenPos.x, y: screenPos.y, row: gridPos.row, col: gridPos.col });
+				setTextEditing(true);
+				return;
+			}
 
 			// Start drawing
 			isDrawingRef.current = true;
@@ -643,13 +661,185 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 		e.preventDefault();
 	}, []);
 
+	// ---- Selection actions --------------------------------------------------
+
+	/** Get normalized selection bounds (min/max rows/cols). */
+	const getNormalizedSelection = useCallback(() => {
+		if (!selectionRect) return null;
+		return {
+			minRow: Math.min(selectionRect.startRow, selectionRect.endRow),
+			maxRow: Math.max(selectionRect.startRow, selectionRect.endRow),
+			minCol: Math.min(selectionRect.startCol, selectionRect.endCol),
+			maxCol: Math.max(selectionRect.startCol, selectionRect.endCol),
+		};
+	}, [selectionRect]);
+
+	const handleCopySelection = useCallback(() => {
+		const grid = pattern?.grid;
+		const sel = getNormalizedSelection();
+		if (!grid || !sel) return;
+		const cells = grid.getCellsInArea(sel.minCol, sel.minRow, sel.maxCol - sel.minCol + 1, sel.maxRow - sel.minRow + 1);
+		setClipboard(cells);
+	}, [pattern?.grid, getNormalizedSelection, setClipboard]);
+
+	const handleCutSelection = useCallback(() => {
+		const grid = pattern?.grid;
+		const sel = getNormalizedSelection();
+		if (!grid || !sel) return;
+		const cells = grid.getCellsInArea(sel.minCol, sel.minRow, sel.maxCol - sel.minCol + 1, sel.maxRow - sel.minRow + 1);
+		setClipboard(cells);
+		grid.clearArea(sel.minCol, sel.minRow, sel.maxCol - sel.minCol + 1, sel.maxRow - sel.minRow + 1);
+		updateGrid(() => {});
+		executeCommand({ cells: cells.map((c) => ({ row: c.row, col: c.col, data: { color: null, symbol: null } })) }, grid.width, grid.height);
+		setSelectionRect(null);
+	}, [pattern?.grid, getNormalizedSelection, setClipboard, updateGrid, executeCommand, setSelectionRect]);
+
+	const handleDeleteSelection = useCallback(() => {
+		const grid = pattern?.grid;
+		const sel = getNormalizedSelection();
+		if (!grid || !sel) return;
+		const prevCells = grid.getCellsInArea(sel.minCol, sel.minRow, sel.maxCol - sel.minCol + 1, sel.maxRow - sel.minRow + 1);
+		grid.clearArea(sel.minCol, sel.minRow, sel.maxCol - sel.minCol + 1, sel.maxRow - sel.minRow + 1);
+		updateGrid(() => {});
+		executeCommand({ cells: prevCells.map((c) => ({ row: c.row, col: c.col, data: { color: null, symbol: null } })) }, grid.width, grid.height);
+		setSelectionRect(null);
+	}, [pattern?.grid, getNormalizedSelection, updateGrid, executeCommand, setSelectionRect]);
+
+	const handleFillSelection = useCallback(() => {
+		const grid = pattern?.grid;
+		const sel = getNormalizedSelection();
+		if (!grid || !sel) return;
+		const prevCells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
+		for (let r = sel.minRow; r <= sel.maxRow; r++) {
+			for (let c = sel.minCol; c <= sel.maxCol; c++) {
+				const existing = grid.getCell(r, c);
+				prevCells.push({ row: r, col: c, data: { color: existing?.color ?? null } });
+				grid.setCell(r, c, { color: activeColor, stitchType: activeStitchType });
+			}
+		}
+		updateGrid(() => {});
+		executeCommand({ cells: prevCells }, grid.width, grid.height);
+	}, [pattern?.grid, getNormalizedSelection, activeColor, activeStitchType, updateGrid, executeCommand]);
+
+	const handlePasteClipboard = useCallback(() => {
+		const grid = pattern?.grid;
+		if (!grid || !clipboard || clipboard.length === 0) return;
+		// Paste at row 0, col 0 (or at current cursor if available)
+		const pasteRow = cursorPos?.row ?? 0;
+		const pasteCol = cursorPos?.col ?? 0;
+		const origin = clipboard[0];
+		if (!origin) return;
+		const prevCells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
+		for (const cell of clipboard) {
+			const targetRow = pasteRow + (cell.row - origin.row);
+			const targetCol = pasteCol + (cell.col - origin.col);
+			if (targetRow < 0 || targetRow >= grid.height || targetCol < 0 || targetCol >= grid.width) continue;
+			const existing = grid.getCell(targetRow, targetCol);
+			prevCells.push({ row: targetRow, col: targetCol, data: { color: existing?.color ?? null } });
+			grid.setCell(targetRow, targetCol, { color: cell.color, symbol: cell.symbol, stitchType: cell.stitchType });
+		}
+		updateGrid(() => {});
+		executeCommand({ cells: prevCells }, grid.width, grid.height);
+	}, [pattern?.grid, clipboard, cursorPos, updateGrid, executeCommand]);
+
+	// ---- Keyboard shortcuts for selection -----------------------------------
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Don't intercept when text editing
+			if (textEditing) return;
+
+			// Only handle when canvas area is focused
+			const target = e.target as HTMLElement;
+			if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+			if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectionRect) {
+				e.preventDefault();
+				handleCopySelection();
+			} else if ((e.ctrlKey || e.metaKey) && e.key === 'x' && selectionRect) {
+				e.preventDefault();
+				handleCutSelection();
+			} else if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboard) {
+				e.preventDefault();
+				handlePasteClipboard();
+			} else if ((e.key === 'Delete' || e.key === 'Backspace') && selectionRect) {
+				e.preventDefault();
+				handleDeleteSelection();
+			} else if (e.key === 'Escape' && selectionRect) {
+				setSelectionRect(null);
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [textEditing, selectionRect, clipboard, handleCopySelection, handleCutSelection, handlePasteClipboard, handleDeleteSelection, setSelectionRect]);
+
+	// ---- Text tool commit/cancel --------------------------------------------
+
+	const handleTextCommit = useCallback(
+		(lines: string[]) => {
+			const grid = pattern?.grid;
+			if (!grid || !textInputPos) return;
+
+			const prevCells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
+			const newCells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i]!;
+				for (let j = 0; j < line.length; j++) {
+					const r = textInputPos.row + i;
+					const c = textInputPos.col + j;
+					if (r < 0 || r >= grid.height || c < 0 || c >= grid.width) continue;
+					const existing = grid.getCell(r, c);
+					prevCells.push({ row: r, col: c, data: { color: existing?.color ?? null, symbol: existing?.symbol ?? null } });
+					newCells.push({ row: r, col: c, data: { color: activeColor, symbol: line[j], stitchType: activeStitchType } });
+				}
+			}
+
+			// Apply new cells to grid
+			for (const cell of newCells) {
+				grid.setCell(cell.row, cell.col, cell.data);
+			}
+			updateGrid(() => {});
+			executeCommand({ cells: prevCells }, grid.width, grid.height);
+
+			setTextInputPos(null);
+			setTextEditing(false);
+		},
+		[pattern?.grid, textInputPos, activeColor, activeStitchType, updateGrid, executeCommand, setTextEditing],
+	);
+
+	const handleTextCancel = useCallback(() => {
+		setTextInputPos(null);
+		setTextEditing(false);
+	}, [setTextEditing]);
+
+	// ---- Selection toolbar position -----------------------------------------
+
+	const selectionToolbarPos = (() => {
+		if (!selectionRect || !rendererRef.current) return null;
+		const sel = getNormalizedSelection();
+		if (!sel) return null;
+		const topLeft = rendererRef.current.gridToScreen(sel.minRow, sel.minCol);
+		const nextCol = rendererRef.current.gridToScreen(sel.minRow, sel.minCol + 1);
+		const ecs = nextCol.x - topLeft.x;
+		const toolbarWidth = 140;
+		const toolbarHeight = 32;
+		return {
+			left: Math.max(4, topLeft.x + (sel.maxCol - sel.minCol + 1) * ecs / 2 - toolbarWidth / 2),
+			top: Math.max(4, topLeft.y - toolbarHeight - 4),
+		};
+	})();
+
 	// ---- Determine cursor style ---------------------------------------------
 
 	const canvasCursor = activeTool === 'pan'
 		? isPanningRef.current ? 'grabbing' : 'grab'
 		: activeTool === 'selection'
 			? 'default'
-			: 'crosshair';
+			: activeTool === 'text'
+				? 'text'
+				: 'crosshair';
 
 	// ---- Render JSX ---------------------------------------------------------
 
@@ -675,6 +865,27 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				<div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-0.5 text-xs text-white">
 					R: {cursorPos.row}, C: {cursorPos.col}
 				</div>
+			)}
+			{selectionToolbarPos && selectionRect && (
+				<div
+					className="absolute z-50"
+					style={{ left: selectionToolbarPos.left, top: selectionToolbarPos.top }}
+				>
+					<SelectionToolbar
+						onCopy={handleCopySelection}
+						onCut={handleCutSelection}
+						onDelete={handleDeleteSelection}
+						onFill={handleFillSelection}
+					/>
+				</div>
+			)}
+			{textInputPos && (
+				<TextInput
+					x={textInputPos.x}
+					y={textInputPos.y}
+					onCommit={handleTextCommit}
+					onCancel={handleTextCancel}
+				/>
 			)}
 		</div>
 	);

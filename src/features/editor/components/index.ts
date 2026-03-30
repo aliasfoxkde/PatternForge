@@ -13,3 +13,7 @@ export { KeyboardShortcuts } from './KeyboardShortcuts';
 export type { KeyboardShortcutsProps } from './KeyboardShortcuts';
 export { GridSizeControls } from './GridSizeControls';
 export type { GridSizeControlsProps } from './GridSizeControls';
+export { SelectionToolbar } from './SelectionToolbar';
+export { TextInput } from './TextInput';
+export type { TextInputProps } from './TextInput';
+export { MobileColorPicker } from './MobileColorPicker';

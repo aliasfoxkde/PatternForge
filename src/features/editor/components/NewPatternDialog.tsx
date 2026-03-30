@@ -1,5 +1,12 @@
 /**
- * NewPatternDialog - Dialog for creating a new pattern.
+ * NewPatternDialog - Multi-step wizard for creating a new pattern.
+ *
+ * Steps:
+ *   1. Choose Craft Type (visual grid)
+ *   2. Set Dimensions (presets + custom)
+ *   3. Name & Create
+ *
+ * Includes "Quick Create" shortcut on step 1.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -8,7 +15,7 @@ import { useSettingsStore } from '@/shared/stores/settings-store';
 import type { CraftType } from '@/engine/pattern/types';
 import { CRAFT_TYPE_LABELS } from '@/engine/pattern/types';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, X, Grid3X3 } from 'lucide-react';
 import { FocusTrap } from '@/shared/ui';
 
 export interface NewPatternDialogProps {
@@ -16,51 +23,128 @@ export interface NewPatternDialogProps {
 	onClose: () => void;
 }
 
+// ---- Craft type icons (emoji-based, no external deps) ----
+
+const CRAFT_ICONS: Record<CraftType, string> = {
+	'cross-stitch': '\u2702',
+	'knitting-flat': '\u27F6',
+	'knitting-round': '\u2B55',
+	'crochet-standard': '\u273F',
+	'crochet-c2c': '\u2747',
+	'diamond-painting': '\u25C6',
+	'fuse-beads': '\u2B23',
+	'pixel-art': '\u25A0',
+};
+
+// ---- Dimension presets per craft type ----
+
+const DIMENSION_PRESETS: { label: string; width: number; height: number }[] = [
+	{ label: 'Small (20\u00D720)', width: 20, height: 20 },
+	{ label: 'Medium (40\u00D740)', width: 40, height: 40 },
+	{ label: 'Large (60\u00D760)', width: 60, height: 60 },
+	{ label: 'XL (100\u00D7100)', width: 100, height: 100 },
+	{ label: 'Wide (120\u00D760)', width: 120, height: 60 },
+	{ label: 'Tall (60\u00D7120)', width: 60, height: 120 },
+];
+
+// ---- Step components ----
+
+type WizardStep = 'craft' | 'dimensions' | 'name';
+
+const STEP_ORDER: WizardStep[] = ['craft', 'dimensions', 'name'];
+const STEP_LABELS: Record<WizardStep, string> = {
+	craft: 'Craft Type',
+	dimensions: 'Size',
+	name: 'Name',
+};
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
+	return (
+		<div className="mb-6 flex items-center justify-center gap-1.5">
+			{STEP_ORDER.map((step, i) => (
+				<div key={step} className="flex items-center gap-1.5">
+					<div
+						className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+							i < current
+								? 'bg-craft-600 text-white'
+								: i === current
+									? 'border-2 border-craft-600 text-craft-600'
+									: 'border-2 border-border text-text-muted'
+						}`}
+					>
+						{i < current ? <Check className="h-3 w-3" /> : i + 1}
+					</div>
+					<span
+						className={`text-xs ${
+							i === current ? 'font-medium text-text-primary' : 'text-text-muted'
+						}`}
+					>
+						{STEP_LABELS[step]}
+					</span>
+					{i < total - 1 && <div className="mx-1 h-px w-4 bg-border" />}
+				</div>
+			))}
+		</div>
+	);
+}
+
+// ---- Main dialog ----
+
 export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
-	const [name, setName] = useState('');
+	const [step, setStep] = useState<WizardStep>('craft');
 	const [craftType, setCraftType] = useState<CraftType>('cross-stitch');
-	const [width, setWidth] = useState(30);
-	const [height, setHeight] = useState(30);
+	const [width, setWidth] = useState(40);
+	const [height, setHeight] = useState(40);
+	const [name, setName] = useState('');
 
 	const nameInputRef = useRef<HTMLInputElement>(null);
-
 	const createPattern = usePatternStore((s) => s.createPattern);
 	const defaultCraftType = useSettingsStore((s) => s.defaultCraftType);
 	const defaultWidth = useSettingsStore((s) => s.defaultGridWidth);
 	const defaultHeight = useSettingsStore((s) => s.defaultGridHeight);
 	const navigate = useNavigate();
 
-	// Initialize defaults from settings
+	// Reset state when dialog opens
 	useEffect(() => {
 		if (open) {
+			setStep('craft');
 			setCraftType(defaultCraftType as CraftType);
 			setWidth(defaultWidth);
 			setHeight(defaultHeight);
 			setName('');
-			// Focus name input after render
-			setTimeout(() => nameInputRef.current?.focus(), 100);
 		}
 	}, [open, defaultCraftType, defaultWidth, defaultHeight]);
 
-	const handleCreate = useCallback(() => {
-		const trimmedName = name.trim();
-		if (!trimmedName) return;
+	// Focus name input on last step
+	useEffect(() => {
+		if (open && step === 'name') {
+			setTimeout(() => nameInputRef.current?.focus(), 100);
+		}
+	}, [open, step]);
 
+	const stepIndex = STEP_ORDER.indexOf(step);
+
+	const goNext = useCallback(() => {
+		const next = STEP_ORDER[stepIndex + 1];
+		if (next) setStep(next);
+	}, [stepIndex]);
+
+	const goBack = useCallback(() => {
+		const prev = STEP_ORDER[stepIndex - 1];
+		if (prev) setStep(prev);
+	}, [stepIndex]);
+
+	// Quick Create: skip to name step with defaults
+	const handleQuickCreate = useCallback(() => {
+		setStep('name');
+	}, []);
+
+	const handleCreate = useCallback(() => {
+		const trimmedName = name.trim() || 'Untitled Pattern';
 		createPattern(trimmedName, width, height, craftType);
 		onClose();
 		navigate('/editor');
 	}, [name, width, height, craftType, createPattern, onClose, navigate]);
-
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === 'Enter') {
-				handleCreate();
-			} else if (e.key === 'Escape') {
-				onClose();
-			}
-		},
-		[handleCreate, onClose],
-	);
 
 	if (!open) return null;
 
@@ -79,11 +163,10 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 			{/* Dialog */}
 			<FocusTrap active={open} onEscape={onClose}>
 			<div
-				className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl"
-				onKeyDown={handleKeyDown}
+				className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-xl"
 				role="dialog"
 				aria-modal="true"
-				aria-labelledby="new-pattern-title"
+				aria-labelledby="wizard-title"
 			>
 				{/* Close button */}
 				<button
@@ -95,96 +178,193 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 					<X className="h-4 w-4" />
 				</button>
 
-				<h2 id="new-pattern-title" className="mb-4 text-lg font-semibold text-text-primary">
+				<h2 id="wizard-title" className="mb-2 text-lg font-semibold text-text-primary">
 					New Pattern
 				</h2>
 
-				<div className="space-y-4">
-					{/* Name */}
-					<div>
-						<label htmlFor="pattern-name" className="mb-1 block text-sm text-text-secondary">
-							Name
-						</label>
-						<input
-							ref={nameInputRef}
-							id="pattern-name"
-							type="text"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="My Pattern"
-							className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
-						/>
-					</div>
+				<StepIndicator current={stepIndex} total={STEP_ORDER.length} />
 
-					{/* Craft type */}
-					<div>
-						<label htmlFor="craft-type" className="mb-1 block text-sm text-text-secondary">
-							Craft Type
-						</label>
-						<select
-							id="craft-type"
-							value={craftType}
-							onChange={(e) => setCraftType(e.target.value as CraftType)}
-							className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-2 text-sm text-text-primary focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
-						>
+				{/* Step 1: Choose Craft Type */}
+				{step === 'craft' && (
+					<div className="space-y-4">
+						<div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
 							{craftTypes.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
+								<button
+									key={value}
+									type="button"
+									onClick={() => {
+										setCraftType(value);
+										goNext();
+									}}
+									className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-all ${
+										craftType === value
+											? 'border-craft-600 bg-craft-50 text-craft-700 dark:bg-craft-900/30 dark:text-craft-300'
+											: 'border-border text-text-secondary hover:border-craft-400 hover:bg-surface-tertiary'
+									}`}
+								>
+									<span className="text-2xl">{CRAFT_ICONS[value]}</span>
+									<span className="text-center text-xs font-medium leading-tight">{label}</span>
+								</button>
 							))}
-						</select>
-					</div>
+						</div>
 
-					{/* Dimensions */}
-					<div className="flex gap-4">
-						<div className="flex-1">
-							<label htmlFor="pattern-width" className="mb-1 block text-sm text-text-secondary">
-								Width
+						{/* Quick Create */}
+						<button
+							type="button"
+							onClick={handleQuickCreate}
+							className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:border-craft-400 hover:bg-surface-tertiary hover:text-craft-700"
+						>
+							<Sparkles className="h-4 w-4" />
+							Quick Create with defaults
+						</button>
+					</div>
+				)}
+
+				{/* Step 2: Dimensions */}
+				{step === 'dimensions' && (
+					<div className="space-y-4">
+						<p className="text-sm text-text-secondary">
+							Choose a preset size or enter custom dimensions for{' '}
+							<span className="font-medium text-text-primary">{CRAFT_TYPE_LABELS[craftType]}</span>.
+						</p>
+
+						{/* Presets */}
+						<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+							{DIMENSION_PRESETS.map((preset) => (
+								<button
+									key={preset.label}
+									type="button"
+									onClick={() => {
+										setWidth(preset.width);
+										setHeight(preset.height);
+									}}
+									className={`rounded-lg border-2 px-3 py-2 text-center transition-all ${
+										width === preset.width && height === preset.height
+											? 'border-craft-600 bg-craft-50 text-craft-700 dark:bg-craft-900/30 dark:text-craft-300'
+											: 'border-border text-text-secondary hover:border-craft-400 hover:bg-surface-tertiary'
+									}`}
+								>
+									<span className="block text-sm font-medium">{preset.label}</span>
+									<span className="block text-xs text-text-muted">
+										{preset.width} &times; {preset.height} cells
+									</span>
+								</button>
+							))}
+						</div>
+
+						{/* Custom dimensions */}
+						<div className="rounded-lg border border-border bg-surface-tertiary/50 p-3">
+							<label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-text-primary">
+								<Grid3X3 className="h-3.5 w-3.5" />
+								Custom Size
+							</label>
+							<div className="flex items-center gap-3">
+								<div className="flex-1">
+									<label htmlFor="wiz-width" className="mb-1 block text-xs text-text-muted">
+										Width
+									</label>
+									<input
+										id="wiz-width"
+										type="number"
+										value={width}
+										onChange={(e) => setWidth(Math.max(1, Math.min(2000, Number.parseInt(e.target.value) || 1)))}
+										min={1}
+										max={2000}
+										className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
+									/>
+								</div>
+								<span className="mt-4 text-text-muted">&times;</span>
+								<div className="flex-1">
+									<label htmlFor="wiz-height" className="mb-1 block text-xs text-text-muted">
+										Height
+									</label>
+									<input
+										id="wiz-height"
+										type="number"
+										value={height}
+										onChange={(e) => setHeight(Math.max(1, Math.min(2000, Number.parseInt(e.target.value) || 1)))}
+										min={1}
+										max={2000}
+										className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Step 3: Name & Create */}
+				{step === 'name' && (
+					<div className="space-y-4">
+						<div className="rounded-lg border border-border bg-surface-tertiary/50 p-3">
+							<p className="text-sm text-text-secondary">
+								<strong>{CRAFT_TYPE_LABELS[craftType]}</strong> &mdash; {width} &times; {height} cells
+							</p>
+						</div>
+
+						<div>
+							<label htmlFor="wiz-name" className="mb-1 block text-sm font-medium text-text-secondary">
+								Pattern Name
 							</label>
 							<input
-								id="pattern-width"
-								type="number"
-								value={width}
-								onChange={(e) => setWidth(Math.max(1, Math.min(2000, Number.parseInt(e.target.value) || 1)))}
-								min={1}
-								max={2000}
-								className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-2 text-sm text-text-primary focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
+								ref={nameInputRef}
+								id="wiz-name"
+								type="text"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') handleCreate();
+								}}
+								placeholder="My Pattern"
+								className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
 							/>
-						</div>
-						<div className="flex-1">
-							<label htmlFor="pattern-height" className="mb-1 block text-sm text-text-secondary">
-								Height
-							</label>
-							<input
-								id="pattern-height"
-								type="number"
-								value={height}
-								onChange={(e) => setHeight(Math.max(1, Math.min(2000, Number.parseInt(e.target.value) || 1)))}
-								min={1}
-								max={2000}
-								className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-2 text-sm text-text-primary focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
-							/>
+							<p className="mt-1 text-xs text-text-muted">
+								Leave blank for "Untitled Pattern"
+							</p>
 						</div>
 					</div>
-				</div>
+				)}
 
-				{/* Actions */}
-				<div className="mt-6 flex justify-end gap-2">
-					<button
-						type="button"
-						className="rounded-md border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
-						onClick={onClose}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="rounded-md bg-craft-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
-						onClick={handleCreate}
-						disabled={!name.trim()}
-					>
-						Create
-					</button>
+				{/* Navigation */}
+				<div className="mt-6 flex items-center justify-between">
+					{stepIndex > 0 ? (
+						<button
+							type="button"
+							onClick={goBack}
+							className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
+						>
+							<ArrowLeft className="h-3.5 w-3.5" />
+							Back
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={onClose}
+							className="rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
+						>
+							Cancel
+						</button>
+					)}
+
+					{step === 'name' ? (
+						<button
+							type="button"
+							onClick={handleCreate}
+							className="flex items-center gap-1.5 rounded-md bg-craft-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
+						>
+							<Check className="h-3.5 w-3.5" />
+							Create
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={goNext}
+							className="flex items-center gap-1.5 rounded-md bg-craft-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
+						>
+							Next
+							<ArrowRight className="h-3.5 w-3.5" />
+						</button>
+					)}
 				</div>
 			</div>
 			</FocusTrap>

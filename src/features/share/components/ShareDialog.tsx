@@ -194,7 +194,7 @@ export function ShareDialog({ open, onClose, pattern }: ShareDialogProps) {
                 className={`relative h-5 w-9 rounded-full transition-colors ${isPublic ? "bg-craft-600" : "bg-border"}`}
               >
                 <span
-                  className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${isPublic ? "translate-x-4" : ""}`}
+                  className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white dark:bg-slate-300 transition-transform ${isPublic ? "translate-x-4" : ""}`}
                 />
               </button>
             </div>

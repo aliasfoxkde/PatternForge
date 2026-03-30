@@ -229,7 +229,7 @@ export function PatternPreview({
 
 						{/* Pattern canvas (right) */}
 						<div
-							className="absolute inset-0 flex items-center justify-center bg-white"
+							className="absolute inset-0 flex items-center justify-center bg-surface"
 							style={{ clipPath: `inset(0 0 0 ${splitPosition}%)` }}
 						>
 							<canvas ref={canvasRef} className="rounded-md" />

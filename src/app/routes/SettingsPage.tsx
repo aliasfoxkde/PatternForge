@@ -105,7 +105,7 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <div className="h-6 w-11 rounded-full bg-craft-600 p-0.5 transition-colors">
-                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-200" />
+                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-300" />
                 </div>
               </div>
 
@@ -119,7 +119,7 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <div className="h-6 w-11 rounded-full bg-craft-600 p-0.5 transition-colors">
-                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-200" />
+                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-300" />
                 </div>
               </div>
 

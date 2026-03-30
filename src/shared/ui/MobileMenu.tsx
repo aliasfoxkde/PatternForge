@@ -9,6 +9,9 @@ import {
 	Sun,
 	Moon,
 	Monitor,
+	Scissors,
+	HelpCircle,
+	Info,
 } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import { useSettingsStore } from "@/shared/stores/settings-store";
@@ -43,7 +46,11 @@ const NAV_LINKS = [
 	{ to: "/editor", label: "Editor", icon: Palette },
 	{ to: "/gallery", label: "Gallery", icon: Image },
 	{ to: "/calculators", label: "Calculators", icon: BarChart3 },
+	{ to: "/yarn", label: "Threads", icon: Scissors },
+	{ to: "/stitches", label: "Stitches", icon: Scissors },
+	{ to: "/help", label: "Help", icon: HelpCircle },
 	{ to: "/settings", label: "Settings", icon: Settings },
+	{ to: "/about", label: "About", icon: Info },
 ] as const;
 
 /* ------------------------------------------------------------------ */

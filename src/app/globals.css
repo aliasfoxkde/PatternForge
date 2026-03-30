@@ -120,13 +120,7 @@
   --color-grid-hover: rgba(168, 85, 247, 0.15);
 }
 
-/* Base styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* Base styles — Tailwind v4 handles its own preflight reset */
 html {
   height: 100%;
   -webkit-font-smoothing: antialiased;
@@ -138,13 +132,12 @@ body {
   color: var(--color-text-primary);
   background-color: var(--color-surface);
   min-height: 100vh;
-  overflow: hidden;
-  overscroll-behavior: none;
+  margin: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -194,10 +187,6 @@ body {
 
 /* Print styles */
 @media print {
-  body {
-    overflow: visible;
-  }
-
   nav,
   .no-print {
     display: none !important;
@@ -242,13 +231,15 @@ body {
   }
 }
 
-/* Safe area insets for notched devices */
+/* Safe area insets for notched devices — only on mobile/standalone PWA */
 @supports (padding: env(safe-area-inset-top)) {
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
+  @media (display-mode: standalone) {
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
   }
 }
 

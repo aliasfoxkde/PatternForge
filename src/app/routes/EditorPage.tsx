@@ -17,6 +17,7 @@ import { GridCanvas } from "@/features/editor/components/GridCanvas";
 import { KeyboardShortcuts } from "@/features/editor/components/KeyboardShortcuts";
 import { Minimap } from "@/features/editor/components/Minimap";
 import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog";
+import { MobileColorPicker } from "@/features/editor/components/MobileColorPicker";
 import { StatusBar } from "@/features/editor/components/StatusBar";
 import { ToolPalette } from "@/features/editor/components/ToolPalette";
 import { ExportDialog } from "@/features/export/components/ExportDialog";
@@ -84,7 +85,7 @@ function MobileToolStrip() {
 
 	return (
 		<div className="fixed bottom-0 left-0 right-0 z-30 flex items-center gap-1 overflow-x-auto border-t border-border bg-surface-secondary px-2 py-1.5 md:hidden"
-			style={{ overscrollBehavior: "none" }}
+			style={{ overscrollBehavior: "none", paddingBottom: "max(0.375rem, env(safe-area-inset-bottom))" }}
 		>
 			{MOBILE_TOOLS.map(({ type, icon: Icon }) => (
 				<button
@@ -179,6 +180,7 @@ export function EditorPage() {
 			}
 		} catch (error) {
 			console.error("[EditorPage] Failed to load pattern:", error);
+			toast.error("Failed to load pattern");
 		}
 	}, [id, loadPattern]);
 
@@ -460,7 +462,8 @@ export function EditorPage() {
 				)}
 
 				{/* Center: Canvas */}
-				<div className="relative flex-1 overflow-hidden pb-14 md:pb-0">
+				<div className="relative flex-1 overflow-hidden pb-14 md:pb-0"
+					style={{ paddingBottom: "max(3.5rem, calc(3.5rem + env(safe-area-inset-bottom)))" }}>
 					<GridCanvas executeCommand={executeCommand} />
 					<Minimap width={0} height={0} />
 				</div>
@@ -480,6 +483,9 @@ export function EditorPage() {
 
 			{/* Mobile bottom tool strip */}
 			<MobileToolStrip />
+
+			{/* Mobile color picker FAB + bottom sheet */}
+			<MobileColorPicker />
 
 			{/* Dialogs */}
 			<NewPatternDialog

@@ -23,6 +23,18 @@ const SettingsPage = lazy(() =>
 const SharedPatternPage = lazy(() =>
   import("@/app/routes/SharedPatternPage").then((m) => ({ default: m.SharedPatternPage })),
 );
+const YarnPage = lazy(() =>
+  import("@/app/routes/YarnPage").then((m) => ({ default: m.YarnPage })),
+);
+const StitchesPage = lazy(() =>
+  import("@/app/routes/StitchesPage").then((m) => ({ default: m.StitchesPage })),
+);
+const HelpPage = lazy(() =>
+  import("@/app/routes/HelpPage").then((m) => ({ default: m.HelpPage })),
+);
+const AboutPage = lazy(() =>
+  import("@/app/routes/AboutPage").then((m) => ({ default: m.AboutPage })),
+);
 
 function LoadingFallback() {
   return (
@@ -46,7 +58,7 @@ function DefaultLayout() {
       >
         Skip to content
       </a>
-      <div id="main-content" className="flex flex-1 overflow-hidden">
+      <div id="main-content" className="flex flex-1">
         <Outlet />
       </div>
     </div>
@@ -84,7 +96,11 @@ export function AppLayout() {
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/image-converter" element={<ImageConverterPage />} />
           <Route path="/calculators" element={<CalculatorsPage />} />
+          <Route path="/yarn" element={<YarnPage />} />
+          <Route path="/stitches" element={<StitchesPage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/shared/:id" element={<SharedPatternPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
