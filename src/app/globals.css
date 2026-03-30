@@ -133,11 +133,13 @@ body {
   background-color: var(--color-surface);
   min-height: 100vh;
   margin: 0;
+  width: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }

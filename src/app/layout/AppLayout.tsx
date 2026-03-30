@@ -50,7 +50,7 @@ function LoadingFallback() {
 /** Layout for all non-editor pages: TopNav + Outlet */
 function DefaultLayout() {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 w-full flex-col">
       <TopNav />
       <a
         href="#main-content"
@@ -58,7 +58,7 @@ function DefaultLayout() {
       >
         Skip to content
       </a>
-      <div id="main-content" className="flex flex-1">
+      <div id="main-content" className="min-w-0 flex-1">
         <Outlet />
       </div>
     </div>
@@ -68,7 +68,7 @@ function DefaultLayout() {
 /** Layout for editor pages: just an Outlet (EditorPage renders its own nav) */
 function EditorLayout() {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 w-full flex-col">
       <a
         href="#editor-canvas"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 rounded-md bg-craft-600 px-3 py-2 text-sm font-medium text-white focus:outline-none"

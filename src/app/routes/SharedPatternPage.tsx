@@ -78,7 +78,7 @@ export function SharedPatternPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-surface">
+      <div className="flex h-full w-full items-center justify-center bg-surface">
         <Loader2 className="h-8 w-8 animate-spin text-craft-600" />
       </div>
     );
@@ -86,7 +86,7 @@ export function SharedPatternPage() {
 
   if (error || !pattern) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-surface">
         <p className="text-sm text-red-500">{error || "Pattern not found"}</p>
         <Link
           to="/gallery"
@@ -100,7 +100,7 @@ export function SharedPatternPage() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full w-full flex-col bg-surface">
       {/* Header */}
       <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
         <div className="flex items-center gap-3 min-w-0">

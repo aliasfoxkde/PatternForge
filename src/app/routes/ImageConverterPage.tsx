@@ -194,7 +194,7 @@ export function ImageConverterPage() {
 	const hasImage = imageDataUrl !== null;
 
 	return (
-		<div className="flex h-full flex-col bg-surface">
+		<div className="flex h-full w-full flex-col bg-surface">
 			{/* Header */}
 			<header className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
 				<button

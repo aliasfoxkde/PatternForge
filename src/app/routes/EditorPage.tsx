@@ -413,7 +413,7 @@ export function EditorPage() {
 	// Empty state - no pattern loaded
 	if (!pattern) {
 		return (
-			<div className="flex h-full flex-col bg-surface">
+			<div className="flex h-full w-full flex-col bg-surface">
 				<main className="flex flex-1 items-center justify-center bg-surface-tertiary">
 					<div className="flex flex-col items-center gap-4 text-center px-6">
 						<div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-border-strong text-text-muted">
@@ -446,7 +446,7 @@ export function EditorPage() {
 
 	// Full editor layout
 	return (
-		<div className="flex h-full flex-col bg-surface">
+		<div className="flex h-full w-full flex-col bg-surface">
 			{/* Editor navigation bar */}
 			<EditorNav
 				onSave={handleSave}

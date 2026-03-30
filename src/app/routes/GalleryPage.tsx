@@ -60,7 +60,7 @@ export function GalleryPage() {
   );
 
   return (
-    <div className="flex h-full flex-col bg-surface">
+    <div className="flex h-full w-full flex-col bg-surface">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6 sm:py-4">
         <h1 className="text-lg font-bold text-text-primary sm:text-xl">My Patterns</h1>

@@ -87,7 +87,7 @@ const STITCHES: StitchInfo[] = [
 
 export function StitchesPage() {
 	return (
-		<div className="flex h-full flex-col bg-surface">
+		<div className="flex h-full w-full flex-col bg-surface">
 			{/* Header */}
 			<header className="border-b border-border px-4 py-3 sm:px-6 sm:py-4">
 				<h1 className="text-lg font-bold text-text-primary sm:text-xl">Stitch Reference</h1>

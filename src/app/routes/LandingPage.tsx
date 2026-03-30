@@ -187,7 +187,7 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="flex min-h-full flex-col overflow-y-auto bg-surface text-text-primary">
+    <div className="flex min-h-full w-full flex-col overflow-y-auto bg-surface text-text-primary">
       {/* ---- Hero Section ---- */}
       <section className="relative flex flex-col items-center overflow-hidden px-6 pb-16 pt-12 text-center sm:pb-20 sm:pt-20">
         {/* Animated gradient background */}

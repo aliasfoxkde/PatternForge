@@ -48,7 +48,7 @@ export function TopNav() {
 	return (
 		<>
 			<MobileMenu />
-			<header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4">
+			<header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-surface px-4">
 				{/* Logo / brand */}
 				<NavLink
 					to="/"
