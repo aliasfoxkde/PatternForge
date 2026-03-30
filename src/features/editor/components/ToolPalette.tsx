@@ -4,6 +4,7 @@
 
 import { useEditorStore } from '@/shared/stores/editor-store';
 import type { ToolType } from '@/engine/tools/tools';
+import type { StitchType } from '@/engine/grid/grid';
 import {
 	Pencil,
 	Paintbrush,
@@ -49,6 +50,19 @@ const VIEW_TOOLS: ToolItem[] = [
 	{ type: 'pan', label: 'Pan', shortcut: 'H', icon: Move },
 ];
 
+const STITCH_TYPES: { type: StitchType; label: string; short: string }[] = [
+	{ type: 'full', label: 'Full Stitch', short: '■' },
+	{ type: 'half', label: 'Half Stitch', short: '◁' },
+	{ type: 'quarter', label: 'Quarter Stitch', short: '◀' },
+	{ type: 'backstitch', label: 'Backstitch', short: '╲' },
+	{ type: 'french-knot', label: 'French Knot', short: '●' },
+	{ type: 'purl', label: 'Purl', short: '─' },
+	{ type: 'knit', label: 'Knit', short: '∨' },
+	{ type: 'yarn-over', label: 'Yarn Over', short: '○' },
+	{ type: 'increase', label: 'Increase', short: '╱' },
+	{ type: 'decrease', label: 'Decrease', short: '╲' },
+];
+
 function ToolDivider() {
 	return <div className="mx-1 my-1 h-px w-8 bg-border" />;
 }
@@ -67,6 +81,7 @@ function ToolButton({
 	return (
 		<button
 			type="button"
+			aria-label={`${tool.label} (${tool.shortcut})`}
 			title={`${tool.label} (${tool.shortcut})`}
 			className={cn(
 				'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
@@ -88,9 +103,13 @@ export function ToolPalette() {
 	const setMirrorHorizontal = useEditorStore((s) => s.setMirrorHorizontal);
 	const mirrorVertical = useEditorStore((s) => s.mirrorVertical);
 	const setMirrorVertical = useEditorStore((s) => s.setMirrorVertical);
+	const activeStitchType = useEditorStore((s) => s.activeStitchType);
+	const setActiveStitchType = useEditorStore((s) => s.setActiveStitchType);
+
+	const isDrawTool = ['pencil', 'brush', 'fill', 'line', 'rectangle', 'ellipse'].includes(activeTool);
 
 	return (
-		<aside className="flex w-12 flex-col items-center gap-1 border-r border-border bg-surface-secondary py-2">
+		<aside className="flex w-12 flex-col items-center gap-1 border-r border-border bg-surface-secondary py-2" role="toolbar" aria-label="Drawing tools">
 			{DRAW_TOOLS.map((tool) => (
 				<ToolButton
 					key={tool.type}
@@ -132,6 +151,31 @@ export function ToolPalette() {
 					onSelect={setActiveTool}
 				/>
 			))}
+
+			{/* Stitch type selector — only visible when a drawing/shape tool is active */}
+			{isDrawTool && (
+				<>
+					<ToolDivider />
+					<div className="flex flex-col items-center gap-0.5">
+						{STITCH_TYPES.map((stitch) => (
+							<button
+								key={stitch.type}
+								type="button"
+								title={stitch.label}
+								className={cn(
+									'flex h-7 w-9 items-center justify-center rounded text-xs font-mono transition-colors',
+									activeStitchType === stitch.type
+										? 'bg-craft-200 text-craft-800'
+										: 'text-text-muted hover:bg-surface-tertiary hover:text-text-primary',
+								)}
+								onClick={() => setActiveStitchType(stitch.type)}
+							>
+								{stitch.short}
+							</button>
+						))}
+					</div>
+				 </>
+			)}
 
 			{/* Spacer pushes mirror buttons to bottom */}
 			<div className="flex-1" />

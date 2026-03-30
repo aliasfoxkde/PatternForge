@@ -15,6 +15,16 @@ export interface ExportPNGOptions {
 	showSymbols?: boolean;
 	/** Background color behind the grid */
 	backgroundColor?: string;
+	/** Show row numbers on left side */
+	showRowNumbers?: boolean;
+	/** Show column numbers on top */
+	showColumnNumbers?: boolean;
+	/** Interval for row/column numbers (default: 10) */
+	numberInterval?: number;
+	/** Width of row number margin in pixels */
+	rowNumMargin?: number;
+	/** Height of column number margin in pixels */
+	colNumMargin?: number;
 }
 
 /**
@@ -34,11 +44,18 @@ export function exportToPNG(
 		showGridLines = false,
 		showSymbols = false,
 		backgroundColor = "#ffffff",
+		showRowNumbers = false,
+		showColumnNumbers = false,
+		numberInterval = 10,
+		rowNumMargin = 24,
+		colNumMargin = 16,
 	} = options ?? {};
 
 	const dpr = window.devicePixelRatio || 1;
-	const canvasWidth = grid.width * cellSize;
-	const canvasHeight = grid.height * cellSize;
+	const marginX = showRowNumbers ? rowNumMargin : 0;
+	const marginY = showColumnNumbers ? colNumMargin : 0;
+	const canvasWidth = grid.width * cellSize + marginX;
+	const canvasHeight = grid.height * cellSize + marginY;
 
 	const canvas = document.createElement("canvas");
 	canvas.width = canvasWidth * dpr;
@@ -61,7 +78,7 @@ export function exportToPNG(
 
 		const hex = oklchToHex(cell.color);
 		ctx.fillStyle = hex;
-		ctx.fillRect(cell.col * cellSize, cell.row * cellSize, cellSize, cellSize);
+		ctx.fillRect(marginX + cell.col * cellSize, marginY + cell.row * cellSize, cellSize, cellSize);
 	}
 
 	// Grid lines
@@ -70,16 +87,44 @@ export function exportToPNG(
 		ctx.lineWidth = 0.5;
 
 		for (let row = 0; row <= grid.height; row++) {
+			const y = marginY + row * cellSize;
 			ctx.beginPath();
-			ctx.moveTo(0, row * cellSize);
-			ctx.lineTo(canvasWidth, row * cellSize);
+			ctx.moveTo(marginX, y);
+			ctx.lineTo(marginX + grid.width * cellSize, y);
 			ctx.stroke();
 		}
 		for (let col = 0; col <= grid.width; col++) {
+			const x = marginX + col * cellSize;
 			ctx.beginPath();
-			ctx.moveTo(col * cellSize, 0);
-			ctx.lineTo(col * cellSize, canvasHeight);
+			ctx.moveTo(x, marginY);
+			ctx.lineTo(x, marginY + grid.height * cellSize);
 			ctx.stroke();
+		}
+	}
+
+	// Row numbers
+	if (showRowNumbers) {
+		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+		ctx.font = `${Math.max(8, cellSize * 0.6)}px sans-serif`;
+		ctx.textAlign = "right";
+		ctx.textBaseline = "middle";
+		for (let row = 0; row < grid.height; row++) {
+			if (row > 0 && row % numberInterval === 0) {
+				ctx.fillText(String(row), marginX - 4, marginY + row * cellSize + cellSize / 2);
+			}
+		}
+	}
+
+	// Column numbers
+	if (showColumnNumbers) {
+		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+		ctx.font = `${Math.max(8, cellSize * 0.6)}px sans-serif`;
+		ctx.textAlign = "center";
+		ctx.textBaseline = "bottom";
+		for (let col = 0; col < grid.width; col++) {
+			if (col > 0 && col % numberInterval === 0) {
+				ctx.fillText(String(col), marginX + col * cellSize + cellSize / 2, marginY - 2);
+			}
 		}
 	}
 
@@ -97,8 +142,8 @@ export function exportToPNG(
 			ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
 			ctx.fillText(
 				cell.symbol,
-				cell.col * cellSize + cellSize / 2,
-				cell.row * cellSize + cellSize / 2,
+				marginX + cell.col * cellSize + cellSize / 2,
+				marginY + cell.row * cellSize + cellSize / 2,
 			);
 		}
 	}

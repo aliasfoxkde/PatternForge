@@ -7,7 +7,7 @@
 
 import { oklchToHex } from "@/engine/color/colors";
 import type { PatternGrid } from "@/engine/grid/grid";
-import { jsPDF } from "jspdf";
+import { findNearestDmcColor } from "@/data/color-matching";
 
 export interface ExportPDFOptions {
 	/** Draw grid lines between cells */
@@ -20,6 +20,12 @@ export interface ExportPDFOptions {
 	includeLegend?: boolean;
 	/** Page size */
 	pageSize?: "a4" | "letter";
+	/** Show row numbers on left side */
+	showRowNumbers?: boolean;
+	/** Show column numbers on top */
+	showColumnNumbers?: boolean;
+	/** Interval for row/column numbers (default: 10) */
+	numberInterval?: number;
 }
 
 /** Page dimensions in mm */
@@ -53,11 +59,18 @@ export async function exportToPDF(
 		cellSize = 5,
 		includeLegend = true,
 		pageSize = "a4",
+		showRowNumbers = true,
+		showColumnNumbers = true,
+		numberInterval = 10,
 	} = options ?? {};
 
+	const { jsPDF } = await import("jspdf");
+
 	const page = PAGE_SIZES[pageSize];
-	const printableWidth = page.width - MARGIN * 2;
-	const printableHeight = page.height - MARGIN * 2 - 10; // 10mm for header
+	const rowNumWidth = showRowNumbers ? 8 : 0; // mm for row numbers column
+	const colNumHeight = showColumnNumbers ? 5 : 0; // mm for column numbers row
+	const printableWidth = page.width - MARGIN * 2 - rowNumWidth;
+	const printableHeight = page.height - MARGIN * 2 - 10 - colNumHeight;
 
 	const cellsPerRow = Math.floor(printableWidth / cellSize);
 	const cellsPerCol = Math.floor(printableHeight / cellSize);
@@ -117,7 +130,42 @@ export async function exportToPDF(
 			const endRow = Math.min(startRow + cellsPerCol, grid.height);
 			const endCol = Math.min(startCol + cellsPerRow, grid.width);
 
-			const yOffset = MARGIN + 10; // Below header
+			const xOffset = MARGIN + rowNumWidth;
+			const yOffset = MARGIN + 10 + colNumHeight;
+
+			// Column numbers
+			if (showColumnNumbers) {
+				doc.setFontSize(Math.max(4, cellSize * 1.5));
+				doc.setFont("helvetica", "normal");
+				doc.setTextColor(100, 100, 100);
+				for (let col = startCol; col < endCol; col++) {
+					if (col > 0 && col % numberInterval === 0) {
+						const x = xOffset + (col - startCol) * cellSize + cellSize / 2;
+						doc.text(String(col), x, MARGIN + 10 + colNumHeight - 1, {
+							align: "center",
+							baseline: "bottom",
+						});
+					}
+				}
+				doc.setTextColor(0, 0, 0);
+			}
+
+			// Row numbers
+			if (showRowNumbers) {
+				doc.setFontSize(Math.max(4, cellSize * 1.5));
+				doc.setFont("helvetica", "normal");
+				doc.setTextColor(100, 100, 100);
+				for (let row = startRow; row < endRow; row++) {
+					if (row > 0 && row % numberInterval === 0) {
+						const y = yOffset + (row - startRow) * cellSize + cellSize / 2;
+						doc.text(String(row), MARGIN, y, {
+							align: "right",
+							baseline: "middle",
+						});
+					}
+				}
+				doc.setTextColor(0, 0, 0);
+			}
 
 			// Render cells
 			for (let row = startRow; row < endRow; row++) {
@@ -127,7 +175,7 @@ export async function exportToPDF(
 						const hex = oklchToHex(color);
 						doc.setFillColor(hex);
 						doc.rect(
-							MARGIN + (col - startCol) * cellSize,
+							xOffset + (col - startCol) * cellSize,
 							yOffset + (row - startRow) * cellSize,
 							cellSize,
 							cellSize,
@@ -144,10 +192,10 @@ export async function exportToPDF(
 
 				for (let r = startRow; r <= endRow; r++) {
 					const y = yOffset + (r - startRow) * cellSize;
-					doc.line(MARGIN, y, MARGIN + (endCol - startCol) * cellSize, y);
+					doc.line(xOffset, y, xOffset + (endCol - startCol) * cellSize, y);
 				}
 				for (let c = startCol; c <= endCol; c++) {
-					const x = MARGIN + (c - startCol) * cellSize;
+					const x = xOffset + (c - startCol) * cellSize;
 					doc.line(x, yOffset, x, yOffset + (endRow - startRow) * cellSize);
 				}
 			}
@@ -162,7 +210,7 @@ export async function exportToPDF(
 					for (let col = startCol; col < endCol; col++) {
 						const symbol = symbolMap.get(`${row},${col}`);
 						if (symbol) {
-							const x = MARGIN + (col - startCol) * cellSize + cellSize / 2;
+							const x = xOffset + (col - startCol) * cellSize + cellSize / 2;
 							const y = yOffset + (row - startRow) * cellSize + cellSize / 2;
 							doc.text(symbol, x, y, { align: "center", baseline: "middle" });
 						}
@@ -174,7 +222,7 @@ export async function exportToPDF(
 		}
 	}
 
-	// Legend page
+	// Legend page with DMC floss matching
 	if (includeLegend && uniqueColors.size > 0) {
 		doc.addPage(pageSize === "a4" ? "a4" : "letter", "portrait");
 
@@ -192,14 +240,17 @@ export async function exportToPDF(
 		);
 		doc.setTextColor(0, 0, 0);
 
+		// Sort colors by usage count (most used first)
+		const sortedColors = [...uniqueColors.entries()].sort((a, b) => b[1] - a[1]);
+
 		const legendStartY = MARGIN + 15;
 		const swatchSize = 8;
-		const rowHeight = 10;
-		const columns = 5;
-		const colWidth = printableWidth / columns;
+		const rowHeight = 12;
+		const columns = 3;
+		const colWidth = (page.width - MARGIN * 2) / columns;
 
 		let colorIdx = 0;
-		for (const [color, count] of uniqueColors) {
+		for (const [color, count] of sortedColors) {
 			const colIdx = colorIdx % columns;
 			const rowIdx = Math.floor(colorIdx / columns);
 
@@ -207,7 +258,6 @@ export async function exportToPDF(
 			const y = legendStartY + rowIdx * rowHeight;
 
 			if (y > page.height - MARGIN) {
-				// Legend overflows - stop rendering
 				break;
 			}
 
@@ -218,14 +268,28 @@ export async function exportToPDF(
 			doc.setDrawColor(180, 180, 180);
 			doc.rect(x, y, swatchSize, swatchSize, "S");
 
-			// Label
+			// DMC match
+			const dmc = findNearestDmcColor(hex);
+			const label = dmc
+				? `${dmc.id} ${dmc.name} (${count})`
+				: `${hex} (${count})`;
+
 			doc.setFontSize(7);
 			doc.setFont("helvetica", "normal");
-			doc.text(`${hex} (${count})`, x + swatchSize + 2, y + swatchSize / 2, {
+			doc.text(label, x + swatchSize + 2, y + swatchSize / 2, {
 				baseline: "middle",
 			});
 
 			colorIdx++;
+		}
+
+		// Total stitch count
+		const totalStitches = [...uniqueColors.values()].reduce((sum, c) => sum + c, 0);
+		const totalY = legendStartY + Math.ceil(sortedColors.length / columns) * rowHeight + 10;
+		if (totalY < page.height - MARGIN) {
+			doc.setFontSize(9);
+			doc.setFont("helvetica", "bold");
+			doc.text(`Total stitches: ${totalStitches}`, MARGIN, totalY);
 		}
 	}
 

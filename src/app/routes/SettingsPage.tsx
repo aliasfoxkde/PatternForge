@@ -13,23 +13,23 @@ export function SettingsPage() {
   return (
     <div className="flex h-full flex-col bg-surface">
       {/* Header */}
-      <header className="border-b border-border px-6 py-4">
-        <h1 className="text-xl font-bold text-text-primary">Settings</h1>
-        <p className="mt-1 text-sm text-text-secondary">
+      <header className="border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+        <h1 className="text-lg font-bold text-text-primary sm:text-xl">Settings</h1>
+        <p className="mt-0.5 text-sm text-text-secondary">
           Customize your PatternForge experience
         </p>
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="mx-auto max-w-2xl space-y-8">
           {/* Theme */}
-          <section className="rounded-xl border border-border bg-surface p-6">
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
               Appearance
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-text-primary">Theme</h3>
                   <p className="text-xs text-text-secondary">
@@ -64,12 +64,12 @@ export function SettingsPage() {
           </section>
 
           {/* Default Craft Type */}
-          <section className="rounded-xl border border-border bg-surface p-6">
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
               Defaults
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-text-primary">
                     Default Craft Type
@@ -90,12 +90,12 @@ export function SettingsPage() {
           </section>
 
           {/* Grid Preferences */}
-          <section className="rounded-xl border border-border bg-surface p-6">
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
               Grid Preferences
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-text-primary">
                     Show Grid Lines
@@ -105,11 +105,11 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <div className="h-6 w-11 rounded-full bg-craft-600 p-0.5 transition-colors">
-                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform" />
+                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-200" />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-text-primary">
                     Highlight Every 10
@@ -119,11 +119,11 @@ export function SettingsPage() {
                   </p>
                 </div>
                 <div className="h-6 w-11 rounded-full bg-craft-600 p-0.5 transition-colors">
-                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform" />
+                  <div className="h-5 w-5 translate-x-5 rounded-full bg-white shadow-sm transition-transform dark:bg-slate-200" />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
                     <Grid3X3 className="h-3.5 w-3.5" />
@@ -146,7 +146,7 @@ export function SettingsPage() {
           </section>
 
           {/* About */}
-          <section className="rounded-xl border border-border bg-surface p-6">
+          <section className="rounded-xl border border-border bg-surface p-4 sm:p-6">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
               About
             </h2>

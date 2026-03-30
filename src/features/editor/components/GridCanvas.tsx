@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { CanvasRenderer, type GridPosition } from '@/engine/renderer/canvas-renderer';
+import { CanvasRenderer, type GridPosition, type Selection } from '@/engine/renderer/canvas-renderer';
 import { DrawingTools, type ToolResult } from '@/engine/tools/tools';
 import { useEditorStore } from '@/shared/stores/editor-store';
 import { usePatternStore } from '@/shared/stores/pattern-store';
@@ -44,6 +44,9 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 	const mirrorVertical = useEditorStore((s) => s.mirrorVertical);
 	const fillTolerance = useEditorStore((s) => s.fillTolerance);
 	const shapeFilled = useEditorStore((s) => s.shapeFilled);
+	const activeStitchType = useEditorStore((s) => s.activeStitchType);
+	const selectionRect = useEditorStore((s) => s.selectionRect);
+	const setSelectionRect = useEditorStore((s) => s.setSelectionRect);
 	const setActiveColor = useEditorStore((s) => s.setActiveColor);
 	const setZoom = useEditorStore((s) => s.setZoom);
 	const showGridLines = useSettingsStore((s) => s.showGridLines);
@@ -63,11 +66,16 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			majorGridInterval,
 		});
 
+		// Render selection rectangle
+		if (selectionRect) {
+			renderer.renderSelection(selectionRect as Selection);
+		}
+
 		// Render cursor preview
 		if (cursorPos && !isPanningRef.current) {
 			renderer.renderToolCursor(cursorPos, activeTool);
 		}
-	}, [pattern?.grid, showGridLines, showCoordinates, majorGridInterval, cursorPos, activeTool]);
+	}, [pattern?.grid, showGridLines, showCoordinates, majorGridInterval, cursorPos, activeTool, selectionRect]);
 
 	// ---- Animation loop -----------------------------------------------------
 
@@ -154,20 +162,21 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 			const color = activeColor;
 			const symbol = activeSymbol;
+			const stitchType = activeStitchType;
 
 			switch (activeTool) {
 				case 'pencil': {
-					return DrawingTools.pencil(grid, pos, color, symbol);
+					return DrawingTools.pencil(grid, pos, color, symbol, stitchType);
 				}
 				case 'brush': {
-					return DrawingTools.brush(grid, pos, color, symbol, brushSize, 'round');
+					return DrawingTools.brush(grid, pos, color, symbol, brushSize, 'round', stitchType);
 				}
 				case 'eraser': {
 					return DrawingTools.eraser(grid, pos, brushSize);
 				}
 				case 'fill': {
 					if (!isStart) return null;
-					return DrawingTools.fill(grid, pos, color, symbol, fillTolerance);
+					return DrawingTools.fill(grid, pos, color, symbol, fillTolerance, stitchType);
 				}
 				case 'color-picker': {
 					if (!isStart) return null;
@@ -179,21 +188,21 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				}
 				case 'line': {
 					if (!shapeStartRef.current) return null;
-					return DrawingTools.line(shapeStartRef.current, pos, color, symbol);
+					return DrawingTools.line(shapeStartRef.current, pos, color, symbol, stitchType);
 				}
 				case 'rectangle': {
 					if (!shapeStartRef.current) return null;
-					return DrawingTools.rectangle(shapeStartRef.current, pos, color, symbol, shapeFilled);
+					return DrawingTools.rectangle(shapeStartRef.current, pos, color, symbol, shapeFilled, stitchType);
 				}
 				case 'ellipse': {
 					if (!shapeStartRef.current) return null;
-					return DrawingTools.ellipse(shapeStartRef.current, pos, color, symbol, shapeFilled);
+					return DrawingTools.ellipse(shapeStartRef.current, pos, color, symbol, shapeFilled, stitchType);
 				}
 				default:
 					return null;
 			}
 		},
-		[pattern?.grid, activeTool, activeColor, activeSymbol, brushSize, fillTolerance, shapeFilled, setActiveColor],
+		[pattern?.grid, activeTool, activeColor, activeSymbol, brushSize, fillTolerance, shapeFilled, activeStitchType, setActiveColor],
 	);
 
 	// ---- Commit pending changes to the store --------------------------------
@@ -278,6 +287,18 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			isDrawingRef.current = true;
 			lastGridPosRef.current = gridPos;
 
+			// Selection tool — start a selection rectangle
+			if (activeTool === 'selection') {
+				setSelectionRect({
+					startRow: gridPos.row,
+					startCol: gridPos.col,
+					endRow: gridPos.row,
+					endCol: gridPos.col,
+				});
+				shapeStartRef.current = gridPos;
+				return;
+			}
+
 			// Shape tools store the start position
 			if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
 				shapeStartRef.current = gridPos;
@@ -290,7 +311,7 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				pendingChangesRef.current.push(...result.cells);
 			}
 		},
-		[activeTool, applyToolAt, getCanvasPos],
+		[activeTool, applyToolAt, getCanvasPos, setSelectionRect],
 	);
 
 	const handleMouseMove = useCallback(
@@ -317,6 +338,17 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 			// Drawing
 			if (isDrawingRef.current && gridPos) {
+				// Selection tool — update the selection rectangle
+				if (activeTool === 'selection' && shapeStartRef.current) {
+					setSelectionRect({
+						startRow: shapeStartRef.current.row,
+						startCol: shapeStartRef.current.col,
+						endRow: gridPos.row,
+						endCol: gridPos.col,
+					});
+					return;
+				}
+
 				// For shape tools, we don't accumulate during drag — shape preview is visual only
 				if (activeTool === 'line' || activeTool === 'rectangle' || activeTool === 'ellipse') {
 					// Shape preview rendered via cursor overlay — no pending changes until mouse up
@@ -357,7 +389,7 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				lastGridPosRef.current = gridPos;
 			}
 		},
-		[activeTool, activeColor, activeSymbol, applyToolAt, pattern?.grid, getCanvasPos],
+		[activeTool, activeColor, activeSymbol, applyToolAt, pattern?.grid, getCanvasPos, setSelectionRect],
 	);
 
 	const handleMouseUp = useCallback(
@@ -373,6 +405,26 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 			if (!isDrawingRef.current) return;
 			isDrawingRef.current = false;
+
+			// Selection tool — finalize the selection rect (no cell changes)
+			if (activeTool === 'selection') {
+				const pos = getCanvasPos(e);
+				if (shapeStartRef.current && pos && renderer) {
+					const gridPos = renderer.screenToGrid(pos.x, pos.y);
+					if (gridPos) {
+						// Clear selection if it's just a click (no drag)
+						if (
+							gridPos.row === shapeStartRef.current.row &&
+							gridPos.col === shapeStartRef.current.col
+						) {
+							setSelectionRect(null);
+						}
+						// Otherwise the selection rect is already set from mousemove
+					}
+				}
+				shapeStartRef.current = null;
+				return;
+			}
 
 			// For shape tools, compute the final shape
 			if (shapeStartRef.current && renderer) {
@@ -393,7 +445,7 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 			commitStroke();
 			lastGridPosRef.current = null;
 		},
-		[applyToolAt, commitStroke, getCanvasPos],
+		[activeTool, applyToolAt, commitStroke, getCanvasPos, setSelectionRect],
 	);
 
 	// ---- Wheel zoom ---------------------------------------------------------
@@ -595,7 +647,9 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 
 	const canvasCursor = activeTool === 'pan'
 		? isPanningRef.current ? 'grabbing' : 'grab'
-		: 'crosshair';
+		: activeTool === 'selection'
+			? 'default'
+			: 'crosshair';
 
 	// ---- Render JSX ---------------------------------------------------------
 
@@ -605,6 +659,8 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 				ref={canvasRef}
 				className="h-full w-full"
 				style={{ cursor: canvasCursor }}
+				role="application"
+				aria-label="Pattern grid editor"
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
 				onMouseUp={handleMouseUp}

@@ -20,6 +20,7 @@ import type {
 } from "@/features/instructions/generators";
 import { Clipboard, FileText, X } from "lucide-react";
 import { useCallback, useState } from "react";
+import { FocusTrap } from "@/shared/ui";
 
 export interface InstructionsPanelProps {
   /** Whether the panel is open */
@@ -271,12 +272,18 @@ export function InstructionsPanel({ open, onClose, pattern }: InstructionsPanelP
       />
 
       {/* Dialog */}
-      <div className="relative z-10 mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface shadow-xl">
+      <FocusTrap active={open} onEscape={onClose}>
+      <div
+        className="relative z-10 mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="instructions-panel-title"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-craft-600" />
-            <h2 className="text-base font-semibold text-text-primary">
+            <h2 id="instructions-panel-title" className="text-base font-semibold text-text-primary">
               Written Instructions
             </h2>
             <span className="rounded bg-surface-tertiary px-2 py-0.5 text-[10px] font-medium text-text-muted">
@@ -347,6 +354,7 @@ export function InstructionsPanel({ open, onClose, pattern }: InstructionsPanelP
           </button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   );
 }

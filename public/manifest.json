@@ -1,0 +1,19 @@
+{
+  "name": "PatternForge",
+  "short_name": "PatternForge",
+  "description": "Design. Simulate. Stitch. A modern, open-source pattern design platform for fiber arts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "orientation": "any",
+  "categories": ["design", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import { exportToPDF } from "@/features/export/export-pdf";
 import { printPattern } from "@/features/export/export-print";
 import { exportToPNG } from "@/features/export/export-png";
 import { exportToSVG } from "@/features/export/export-svg";
+import { FocusTrap } from "@/shared/ui";
 import {
 	Check,
 	Download,
@@ -26,6 +27,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useToast } from "@/shared/hooks/use-toast";
 
 export type ExportFormat = "png" | "svg" | "pdf" | "json" | "csv";
 
@@ -91,10 +93,12 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 	const [cellSize, setCellSize] = useState(20);
 	const [showGridLines, setShowGridLines] = useState(false);
 	const [showSymbols, setShowSymbols] = useState(false);
+	const [showRowColNumbers, setShowRowColNumbers] = useState(true);
 	const [includeLegend, setIncludeLegend] = useState(true);
 	const [pageSize, setPageSize] = useState<"a4" | "letter">("a4");
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportSuccess, setExportSuccess] = useState(false);
+	const toast = useToast();
 
 	const handleExport = useCallback(async () => {
 		setIsExporting(true);
@@ -108,6 +112,8 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 					const dataUrl = exportToPNG(pattern.grid, cellSize, {
 						showGridLines,
 						showSymbols,
+						showRowNumbers: showRowColNumbers,
+						showColumnNumbers: showRowColNumbers,
 					});
 					triggerDownload(dataUrl, `${baseName}.png`);
 					break;
@@ -116,6 +122,8 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 					const svgString = exportToSVG(pattern.grid, cellSize, {
 						showGridLines,
 						showSymbols,
+						showRowNumbers: showRowColNumbers,
+						showColumnNumbers: showRowColNumbers,
 					});
 					const blob = new Blob([svgString], { type: "image/svg+xml" });
 					triggerBlobDownload(blob, `${baseName}.svg`);
@@ -128,6 +136,8 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 						cellSize,
 						includeLegend,
 						pageSize,
+						showRowNumbers: showRowColNumbers,
+						showColumnNumbers: showRowColNumbers,
 					});
 					triggerBlobDownload(blob, `${baseName}.pdf`);
 					break;
@@ -146,6 +156,7 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 			setTimeout(() => setExportSuccess(false), 2000);
 		} catch (error) {
 			console.error("[ExportDialog] Export failed:", error);
+			toast.error("Export failed. Please try again.");
 		} finally {
 			setIsExporting(false);
 		}
@@ -155,6 +166,7 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 		cellSize,
 		showGridLines,
 		showSymbols,
+		showRowColNumbers,
 		includeLegend,
 		pageSize,
 	]);
@@ -165,9 +177,11 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 	const showGridOptions =
 		format === "png" || format === "svg" || format === "pdf";
 	const showPdfOptions = format === "pdf";
+	const showRowColOption =
+		format === "png" || format === "svg" || format === "pdf";
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center">
+		<div className="fixed inset-0 z-50 flex items-center justify-center" role="presentation">
 			{/* Backdrop */}
 			<div
 				className="absolute inset-0 bg-black/40"
@@ -179,10 +193,16 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 			/>
 
 			{/* Dialog */}
-			<div className="relative z-10 mx-4 w-full max-w-md rounded-xl border border-border bg-surface shadow-xl">
+			<FocusTrap active={open} onEscape={onClose}>
+			<div
+				className="relative z-10 mx-4 w-full max-w-md rounded-xl border border-border bg-surface shadow-xl"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="export-dialog-title"
+			>
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-border px-5 py-4">
-					<h2 className="text-base font-semibold text-text-primary">
+					<h2 id="export-dialog-title" className="text-base font-semibold text-text-primary">
 						Export Pattern
 					</h2>
 					<button
@@ -209,7 +229,7 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 									onClick={() => setFormat(opt.value)}
 									className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-3 text-xs transition-colors ${
 										format === opt.value
-											? "border-craft-500 bg-craft-50 text-craft-700"
+											? "border-craft-500 bg-craft-50 text-craft-700 dark:bg-craft-950/50 dark:text-craft-300"
 											: "border-border bg-surface text-text-secondary hover:border-craft-300"
 									}`}
 								>
@@ -270,6 +290,19 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 								Symbols
 							</label>
 						</div>
+					)}
+
+					{/* Row/Column numbers */}
+					{showRowColOption && (
+						<label className="flex items-center gap-2 text-sm text-text-secondary">
+							<input
+								type="checkbox"
+								checked={showRowColNumbers}
+								onChange={(e) => setShowRowColNumbers(e.target.checked)}
+								className="rounded border-border accent-craft-600"
+							/>
+							Row &amp; column numbers
+						</label>
 					)}
 
 					{/* PDF options */}
@@ -337,6 +370,8 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 								cellSize,
 								showGridLines,
 								showSymbols,
+								showRowNumbers: showRowColNumbers,
+								showColumnNumbers: showRowColNumbers,
 							})
 						}
 						className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-tertiary"
@@ -370,6 +405,7 @@ export function ExportDialog({ open, onClose, pattern }: ExportDialogProps) {
 					</button>
 				</div>
 			</div>
+			</FocusTrap>
 		</div>
 	);
 }

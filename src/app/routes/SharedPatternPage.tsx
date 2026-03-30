@@ -102,19 +102,18 @@ export function SharedPatternPage() {
   return (
     <div className="flex h-full flex-col bg-surface">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/gallery"
-            className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-secondary hover:text-text-primary"
+            className="shrink-0 rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-secondary hover:text-text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-lg font-bold text-text-primary">{pattern.name}</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-text-primary">{pattern.name}</h1>
             <p className="text-xs text-text-muted">
-              by {pattern.authorName} &middot; {pattern.craftType} &middot;{" "}
-              {new Date(pattern.createdAt).toLocaleDateString()}
+              by {pattern.authorName} &middot; {pattern.craftType}
             </p>
           </div>
         </div>
@@ -135,7 +134,7 @@ export function SharedPatternPage() {
             disabled={saved}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-secondary disabled:opacity-50"
           >
-            {saved ? "Saved!" : "Save Locally"}
+            {saved ? "Saved!" : "Save"}
           </button>
           <button
             type="button"
@@ -143,7 +142,7 @@ export function SharedPatternPage() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-craft-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
           >
             <ExternalLink className="h-4 w-4" />
-            Open in Editor
+            Open
           </button>
         </div>
       </header>

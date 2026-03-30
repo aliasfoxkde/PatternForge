@@ -1,5 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 import { lazy, Suspense } from "react";
+import { TopNav } from "@/shared/ui/TopNav";
 
 const LandingPage = lazy(() =>
   import("@/app/routes/LandingPage").then((m) => ({ default: m.LandingPage })),
@@ -34,19 +35,59 @@ function LoadingFallback() {
   );
 }
 
+/** Layout for all non-editor pages: TopNav + Outlet */
+function DefaultLayout() {
+  return (
+    <div className="flex h-full flex-col">
+      <TopNav />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 rounded-md bg-craft-600 px-3 py-2 text-sm font-medium text-white focus:outline-none"
+      >
+        Skip to content
+      </a>
+      <div id="main-content" className="flex flex-1 overflow-hidden">
+        <Outlet />
+      </div>
+    </div>
+  );
+}
+
+/** Layout for editor pages: just an Outlet (EditorPage renders its own nav) */
+function EditorLayout() {
+  return (
+    <div className="flex h-full flex-col">
+      <a
+        href="#editor-canvas"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 rounded-md bg-craft-600 px-3 py-2 text-sm font-medium text-white focus:outline-none"
+      >
+        Skip to editor
+      </a>
+      <Outlet />
+    </div>
+  );
+}
+
 export function AppLayout() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/editor" element={<EditorPage />} />
-        <Route path="/editor/:id" element={<EditorPage />} />
-        <Route path="/gallery" element={<GalleryPage />} />
-        <Route path="/image-converter" element={<ImageConverterPage />} />
-        <Route path="/calculators" element={<CalculatorsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/shared/:id" element={<SharedPatternPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+        {/* Editor routes — no TopNav */}
+        <Route element={<EditorLayout />}>
+          <Route path="/editor" element={<EditorPage />} />
+          <Route path="/editor/:id" element={<EditorPage />} />
+        </Route>
+
+        {/* Default routes — use TopNav */}
+        <Route element={<DefaultLayout />}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/image-converter" element={<ImageConverterPage />} />
+          <Route path="/calculators" element={<CalculatorsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/shared/:id" element={<SharedPatternPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Routes>
     </Suspense>
   );

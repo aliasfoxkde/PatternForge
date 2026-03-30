@@ -20,15 +20,15 @@ export function CalculatorsPage() {
 	return (
 		<div className="flex h-full flex-col bg-surface">
 			{/* Header */}
-			<header className="border-b border-border px-6 py-4">
-				<h1 className="text-xl font-bold text-text-primary">Calculators</h1>
-				<p className="mt-1 text-sm text-text-secondary">
+			<header className="border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+				<h1 className="text-lg font-bold text-text-primary sm:text-xl">Calculators</h1>
+				<p className="mt-0.5 text-sm text-text-secondary">
 					Plan your projects with precision
 				</p>
 			</header>
 
 			{/* Tab Bar */}
-			<div className="flex gap-1 border-b border-border px-6">
+			<div className="flex gap-1 overflow-x-auto border-b border-border px-4 sm:px-6">
 				{tabs.map((tab) => {
 					const Icon = tab.icon;
 					const isActive = activeTab === tab.id;
@@ -51,7 +51,7 @@ export function CalculatorsPage() {
 			</div>
 
 			{/* Content */}
-			<main className="flex-1 overflow-y-auto p-6">
+			<main className="flex-1 overflow-y-auto p-4 sm:p-6">
 				<div className="mx-auto max-w-4xl">
 					{activeTab === "fabric" && <FabricCalculator />}
 					{activeTab === "thread" && <ThreadCalculator />}

@@ -15,6 +15,12 @@ export interface PrintOptions {
   showGridLines?: boolean;
   /** Render cell symbols */
   showSymbols?: boolean;
+  /** Show row numbers on left side */
+  showRowNumbers?: boolean;
+  /** Show column numbers on top */
+  showColumnNumbers?: boolean;
+  /** Interval for row/column numbers (default: 10) */
+  numberInterval?: number;
 }
 
 /**
@@ -35,6 +41,9 @@ export function printPattern(
     cellSize = 16,
     showGridLines = true,
     showSymbols = false,
+    showRowNumbers = true,
+    showColumnNumbers = true,
+    numberInterval = 10,
   } = options ?? {};
 
   const { grid } = pattern;
@@ -51,8 +60,30 @@ export function printPattern(
 
   // Generate table rows
   let tableRows = "";
+
+  // Column number header row
+  if (showColumnNumbers) {
+    let colHeaderCells = '<th style="border:none;"></th>';
+    for (let col = 0; col < width; col++) {
+      if (col > 0 && col % numberInterval === 0) {
+        colHeaderCells += `<th style="width:${cellSize}px;font-size:9px;color:#888;font-weight:normal;border:none;padding:0;">${col}</th>`;
+      } else {
+        colHeaderCells += `<th style="width:${cellSize}px;border:none;padding:0;"></th>`;
+      }
+    }
+    tableRows += `<tr>${colHeaderCells}</tr>`;
+  }
+
   for (let row = 0; row < height; row++) {
     let cells = "";
+
+    // Row number cell
+    if (showRowNumbers && row > 0 && row % numberInterval === 0) {
+      cells += `<td style="font-size:9px;color:#888;text-align:right;padding-right:4px;border:none;white-space:nowrap;">${row}</td>`;
+    } else if (showRowNumbers) {
+      cells += `<td style="border:none;padding:0;"></td>`;
+    }
+
     for (let col = 0; col < width; col++) {
       const cellData = cellMap.get(`${row},${col}`);
       const bg = cellData?.color

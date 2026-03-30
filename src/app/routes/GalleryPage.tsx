@@ -62,23 +62,23 @@ export function GalleryPage() {
   return (
     <div className="flex h-full flex-col bg-surface">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h1 className="text-xl font-bold text-text-primary">My Patterns</h1>
+      <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+        <h1 className="text-lg font-bold text-text-primary sm:text-xl">My Patterns</h1>
         <Link
           to="/editor"
-          className="inline-flex items-center gap-2 rounded-lg bg-craft-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-craft-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-craft-700"
         >
           <Plus className="h-4 w-4" />
-          New Pattern
+          <span className="hidden sm:inline">New Pattern</span>
         </Link>
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-border px-6">
+      <div className="flex border-b border-border px-4 sm:px-6">
         <button
           type="button"
           onClick={() => setTab("local")}
-          className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
             tab === "local"
               ? "border-craft-600 text-craft-600"
               : "border-transparent text-text-secondary hover:text-text-primary"
@@ -89,7 +89,7 @@ export function GalleryPage() {
         <button
           type="button"
           onClick={() => setTab("community")}
-          className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+          className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
             tab === "community"
               ? "border-craft-600 text-craft-600"
               : "border-transparent text-text-secondary hover:text-text-primary"
@@ -101,7 +101,7 @@ export function GalleryPage() {
 
       {/* Community search */}
       {tab === "community" && (
-        <div className="flex items-center gap-2 border-b border-border px-6 py-3">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 sm:px-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <input
@@ -133,7 +133,7 @@ export function GalleryPage() {
       )}
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         {tab === "local" ? (
           localPatterns.length === 0 ? (
             <div className="flex flex-col items-center gap-6 text-center">

@@ -9,6 +9,7 @@ import type { CraftType } from '@/engine/pattern/types';
 import { CRAFT_TYPE_LABELS } from '@/engine/pattern/types';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { FocusTrap } from '@/shared/ui';
 
 export interface NewPatternDialogProps {
 	open: boolean;
@@ -66,29 +67,35 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 	const craftTypes = Object.entries(CRAFT_TYPE_LABELS) as [CraftType, string][];
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center">
+		<div className="fixed inset-0 z-50 flex items-center justify-center" role="presentation">
 			{/* Backdrop */}
 			<div
 				className="absolute inset-0 bg-black/40"
 				onClick={onClose}
 				onKeyDown={undefined}
+				role="presentation"
 			/>
 
 			{/* Dialog */}
+			<FocusTrap active={open} onEscape={onClose}>
 			<div
 				className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl"
 				onKeyDown={handleKeyDown}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="new-pattern-title"
 			>
 				{/* Close button */}
 				<button
 					type="button"
 					className="absolute right-3 top-3 rounded p-1 text-text-muted transition-colors hover:bg-surface-tertiary hover:text-text-primary"
 					onClick={onClose}
+					aria-label="Close dialog"
 				>
 					<X className="h-4 w-4" />
 				</button>
 
-				<h2 className="mb-4 text-lg font-semibold text-text-primary">
+				<h2 id="new-pattern-title" className="mb-4 text-lg font-semibold text-text-primary">
 					New Pattern
 				</h2>
 
@@ -180,6 +187,7 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 					</button>
 				</div>
 			</div>
+			</FocusTrap>
 		</div>
 	);
 }

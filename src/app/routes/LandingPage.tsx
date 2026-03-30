@@ -65,18 +65,18 @@ export function LandingPage() {
   return (
     <div className="flex min-h-full flex-col overflow-y-auto bg-surface text-text-primary">
       {/* Hero Section */}
-      <section className="flex flex-col items-center px-6 pb-16 pt-20 text-center">
-        <div className="mb-6 flex items-center gap-2 rounded-full border border-craft-200 bg-craft-50 px-4 py-1.5 text-sm text-craft-700">
+      <section className="flex flex-col items-center px-6 pb-12 pt-10 text-center sm:pt-16 sm:pb-16">
+        <div className="mb-6 flex items-center gap-2 rounded-full border border-craft-200 bg-craft-50 px-4 py-1.5 text-sm text-craft-700 dark:border-craft-800 dark:bg-craft-950/50 dark:text-craft-300">
           <Sparkles className="h-4 w-4" />
           Open-source pattern design for every craft
         </div>
 
-        <h1 className="mb-6 max-w-3xl text-5xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+        <h1 className="mb-4 max-w-3xl text-3xl font-extrabold leading-tight tracking-tight sm:mb-6 sm:text-5xl lg:text-6xl">
           Design.{" "}
           <span className="text-craft-600">Simulate.</span> Stitch.
         </h1>
 
-        <p className="mb-10 max-w-2xl text-lg leading-relaxed text-text-secondary">
+        <p className="mb-6 max-w-2xl text-base leading-relaxed text-text-secondary sm:mb-10 sm:text-lg">
           PatternForge is a free, browser-based pattern design tool for knitting,
           crochet, cross stitch, diamond painting, fuse beads, and pixel art.
           No sign-up required. Your patterns, your way.
@@ -115,7 +115,7 @@ export function LandingPage() {
                 key={feature.title}
                 className="group rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:border-craft-300 hover:shadow-md"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-craft-100 text-craft-600 transition-colors group-hover:bg-craft-200">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-craft-100 text-craft-600 transition-colors group-hover:bg-craft-200 dark:bg-craft-900/50 dark:text-craft-400 dark:group-hover:bg-craft-800/50">
                   <feature.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
@@ -142,7 +142,7 @@ export function LandingPage() {
             {crafts.map((craft) => (
               <div
                 key={craft.name}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-all hover:border-craft-300 hover:bg-craft-50"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-all hover:border-craft-300 hover:bg-craft-50 dark:hover:bg-craft-950/50"
               >
                 <span className="text-lg">{craft.emoji}</span>
                 {craft.name}
@@ -195,29 +195,10 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-surface px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-sm text-text-muted">
-            PatternForge &mdash; Open-source pattern design
-          </p>
-          <nav className="flex items-center gap-6 text-sm text-text-secondary">
-            <Link to="/editor" className="transition-colors hover:text-craft-600">
-              Editor
-            </Link>
-            <Link to="/gallery" className="transition-colors hover:text-craft-600">
-              Gallery
-            </Link>
-            <Link to="/image-converter" className="transition-colors hover:text-craft-600">
-              Image Converter
-            </Link>
-            <Link to="/calculators" className="transition-colors hover:text-craft-600">
-              Calculators
-            </Link>
-            <Link to="/settings" className="transition-colors hover:text-craft-600">
-              Settings
-            </Link>
-          </nav>
-        </div>
+      <footer className="border-t border-border bg-surface px-6 py-6">
+        <p className="text-center text-sm text-text-muted">
+          PatternForge &mdash; Open-source pattern design
+        </p>
       </footer>
     </div>
   );

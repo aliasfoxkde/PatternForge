@@ -7,7 +7,7 @@
  * @module tools
  */
 
-import type { Cell, PatternGrid } from '@/engine/grid/grid';
+import type { Cell, PatternGrid, StitchType } from '@/engine/grid/grid';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -200,9 +200,9 @@ export class DrawingTools {
   // -----------------------------------------------------------------------
 
   /** Set the cell at `pos` to the given color and symbol. */
-  static pencil(_grid: PatternGrid, pos: GridPosition, color: string, symbol: string | null): ToolResult {
+  static pencil(_grid: PatternGrid, pos: GridPosition, color: string, symbol: string | null, stitchType?: StitchType): ToolResult {
     return {
-      cells: [{ row: pos.row, col: pos.col, data: { color, symbol } }],
+      cells: [{ row: pos.row, col: pos.col, data: { color, symbol, stitchType } }],
     };
   }
 
@@ -218,10 +218,11 @@ export class DrawingTools {
     symbol: string | null,
     size: number,
     shape: 'round' | 'square',
+    stitchType?: StitchType,
   ): ToolResult {
     const positions = brushCells(pos.row, pos.col, size, shape);
     return {
-      cells: positions.map((p) => ({ row: p.row, col: p.col, data: { color, symbol } })),
+      cells: positions.map((p) => ({ row: p.row, col: p.col, data: { color, symbol, stitchType } })),
     };
   }
 
@@ -257,6 +258,7 @@ export class DrawingTools {
     color: string,
     symbol: string | null,
     tolerance: number,
+    stitchType?: StitchType,
   ): ToolResult {
     const startCell = grid.getCell(pos.row, pos.col);
     const targetColor = startCell?.color ?? null;
@@ -273,7 +275,7 @@ export class DrawingTools {
     while (queue.length > 0) {
       const current = queue.shift()!;
 
-      result.push({ row: current.row, col: current.col, data: { color, symbol } });
+      result.push({ row: current.row, col: current.col, data: { color, symbol, stitchType } });
 
       // Explore 4-connected neighbors
       const neighbors: GridPosition[] = [
@@ -329,10 +331,10 @@ export class DrawingTools {
   // -----------------------------------------------------------------------
 
   /** Return cells along a line from `start` to `end` using Bresenham's algorithm. */
-  static line(start: GridPosition, end: GridPosition, color: string, symbol: string | null): ToolResult {
+  static line(start: GridPosition, end: GridPosition, color: string, symbol: string | null, stitchType?: StitchType): ToolResult {
     const points = bresenhamLine(start, end);
     return {
-      cells: points.map((p) => ({ row: p.row, col: p.col, data: { color, symbol } })),
+      cells: points.map((p) => ({ row: p.row, col: p.col, data: { color, symbol, stitchType } })),
     };
   }
 
@@ -347,6 +349,7 @@ export class DrawingTools {
     color: string,
     symbol: string | null,
     filled: boolean,
+    stitchType?: StitchType,
   ): ToolResult {
     const minRow = Math.min(start.row, end.row);
     const maxRow = Math.max(start.row, end.row);
@@ -357,7 +360,7 @@ export class DrawingTools {
       const cells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
       for (let row = minRow; row <= maxRow; row++) {
         for (let col = minCol; col <= maxCol; col++) {
-          cells.push({ row, col, data: { color, symbol } });
+          cells.push({ row, col, data: { color, symbol, stitchType } });
         }
       }
       return { cells };
@@ -368,14 +371,14 @@ export class DrawingTools {
 
     // Top and bottom edges
     for (let col = minCol; col <= maxCol; col++) {
-      cells.push({ row: minRow, col, data: { color, symbol } });
-      cells.push({ row: maxRow, col, data: { color, symbol } });
+      cells.push({ row: minRow, col, data: { color, symbol, stitchType } });
+      cells.push({ row: maxRow, col, data: { color, symbol, stitchType } });
     }
 
     // Left and right edges (excluding corners already added)
     for (let row = minRow + 1; row < maxRow; row++) {
-      cells.push({ row, col: minCol, data: { color, symbol } });
-      cells.push({ row, col: maxCol, data: { color, symbol } });
+      cells.push({ row, col: minCol, data: { color, symbol, stitchType } });
+      cells.push({ row, col: maxCol, data: { color, symbol, stitchType } });
     }
 
     return { cells };
@@ -392,10 +395,11 @@ export class DrawingTools {
     color: string,
     symbol: string | null,
     filled: boolean,
+    stitchType?: StitchType,
   ): ToolResult {
     const points = midpointEllipse(start, end, filled);
     return {
-      cells: points.map((p) => ({ row: p.row, col: p.col, data: { color, symbol } })),
+      cells: points.map((p) => ({ row: p.row, col: p.col, data: { color, symbol, stitchType } })),
     };
   }
 

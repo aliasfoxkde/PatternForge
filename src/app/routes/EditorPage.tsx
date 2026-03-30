@@ -26,27 +26,111 @@ import { ShareDialog } from "@/features/share/components/ShareDialog";
 import { useAutoSave } from "@/shared/hooks/use-auto-save";
 import { useHistoryManager } from "@/shared/hooks/use-history-manager";
 import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";
+import { useToast } from "@/shared/hooks/use-toast";
 import { storage } from "@/shared/storage/storage";
 import { useEditorStore } from "@/shared/stores/editor-store";
 import { usePatternStore } from "@/shared/stores/pattern-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { EditorNav } from "@/shared/ui/EditorNav";
+import type { ToolType } from "@/engine/tools/tools";
 import {
-	BarChart3,
-	Download,
-	FileText,
 	Grid3x3,
 	Maximize2,
+	Paintbrush,
+	PaintBucket,
 	Pencil,
+	Eraser,
+	Square,
+	Circle,
+	Minus,
+	Pipette,
+	Move,
+	FlipHorizontal,
+	FlipVertical,
 	Plus,
 	Redo2,
 	Save,
-	Share2,
 	Undo2,
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { cn } from "@/shared/utils/cn";
+
+/* ------------------------------------------------------------------ */
+/*  Mobile bottom tool strip — horizontal scrollable tool bar          */
+/* ------------------------------------------------------------------ */
+
+const MOBILE_TOOLS: { type: ToolType; icon: React.ComponentType<{ className?: string }> }[] = [
+	{ type: "pencil", icon: Pencil },
+	{ type: "brush", icon: Paintbrush },
+	{ type: "eraser", icon: Eraser },
+	{ type: "fill", icon: PaintBucket },
+	{ type: "line", icon: Minus },
+	{ type: "rectangle", icon: Square },
+	{ type: "ellipse", icon: Circle },
+	{ type: "color-picker", icon: Pipette },
+	{ type: "pan", icon: Move },
+];
+
+function MobileToolStrip() {
+	const activeTool = useEditorStore((s) => s.activeTool);
+	const setActiveTool = useEditorStore((s) => s.setActiveTool);
+	const mirrorHorizontal = useEditorStore((s) => s.mirrorHorizontal);
+	const setMirrorHorizontal = useEditorStore((s) => s.setMirrorHorizontal);
+	const mirrorVertical = useEditorStore((s) => s.mirrorVertical);
+	const setMirrorVertical = useEditorStore((s) => s.setMirrorVertical);
+
+	return (
+		<div className="fixed bottom-0 left-0 right-0 z-30 flex items-center gap-1 overflow-x-auto border-t border-border bg-surface-secondary px-2 py-1.5 md:hidden"
+			style={{ overscrollBehavior: "none" }}
+		>
+			{MOBILE_TOOLS.map(({ type, icon: Icon }) => (
+				<button
+					key={type}
+					type="button"
+					onClick={() => setActiveTool(type)}
+					className={cn(
+						"flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors",
+						activeTool === type
+							? "bg-craft-200 text-craft-800 dark:bg-craft-800 dark:text-craft-200"
+							: "text-text-secondary active:bg-surface-tertiary",
+					)}
+				>
+					<Icon className="h-5 w-5" />
+				</button>
+			))}
+
+			{/* Dividers + mirror toggles */}
+			<div className="mx-1 h-8 w-px shrink-0 bg-border" />
+			<button
+				type="button"
+				onClick={() => setMirrorHorizontal(!mirrorHorizontal)}
+				className={cn(
+					"flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors",
+					mirrorHorizontal
+						? "bg-craft-200 text-craft-800 dark:bg-craft-800 dark:text-craft-200"
+						: "text-text-secondary active:bg-surface-tertiary",
+				)}
+			>
+				<FlipHorizontal className="h-5 w-5" />
+			</button>
+			<button
+				type="button"
+				onClick={() => setMirrorVertical(!mirrorVertical)}
+				className={cn(
+					"flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors",
+					mirrorVertical
+						? "bg-craft-200 text-craft-800 dark:bg-craft-800 dark:text-craft-200"
+						: "text-text-secondary active:bg-surface-tertiary",
+				)}
+			>
+				<FlipVertical className="h-5 w-5" />
+			</button>
+		</div>
+	);
+}
 
 export function EditorPage() {
 	const { id } = useParams<{ id: string }>();
@@ -58,16 +142,14 @@ export function EditorPage() {
 	const [showInstructionsDialog, setShowInstructionsDialog] = useState(false);
 	const [showProgressPanel, setShowProgressPanel] = useState(false);
 	const [showShareDialog, setShowShareDialog] = useState(false);
-	const [isEditingName, setIsEditingName] = useState(false);
-	const [editName, setEditName] = useState("");
-	const nameInputRef = useRef<HTMLInputElement>(null);
+
+	const toast = useToast();
 
 	// Store subscriptions
 	const pattern = usePatternStore((s) => s.pattern);
-	const isDirty = usePatternStore((s) => s.isDirty);
 	const loadPattern = usePatternStore((s) => s.loadPattern);
-	const updatePatternMetadata = usePatternStore((s) => s.updatePatternMetadata);
 	const markSaved = usePatternStore((s) => s.markSaved);
+	const updateGrid = usePatternStore((s) => s.updateGrid);
 	const zoom = useEditorStore((s) => s.zoom);
 	const setZoom = useEditorStore((s) => s.setZoom);
 	const setActiveTool = useEditorStore((s) => s.setActiveTool);
@@ -77,9 +159,11 @@ export function EditorPage() {
 	const toggleShortcuts = useEditorStore((s) => s.toggleShortcuts);
 	const showGridLines = useSettingsStore((s) => s.showGridLines);
 	const setShowGridLines = useSettingsStore((s) => s.setShowGridLines);
+	const selectionRect = useEditorStore((s) => s.selectionRect);
+	const setSelectionRect = useEditorStore((s) => s.setSelectionRect);
 
 	// History manager
-	const { executeCommand, undo, redo, canUndo, canRedo } = useHistoryManager();
+	const { executeCommand, undo, redo } = useHistoryManager();
 
 	// Auto-save
 	useAutoSave();
@@ -119,10 +203,12 @@ export function EditorPage() {
 				version: pattern.metadata.version,
 			});
 			markSaved();
+			toast.success("Pattern saved");
 		} catch (error) {
 			console.error("[EditorPage] Failed to save pattern:", error);
+			toast.error("Failed to save pattern");
 		}
-	}, [pattern, markSaved]);
+	}, [pattern, markSaved, toast]);
 
 	// Zoom controls
 	const handleZoomIn = useCallback(() => {
@@ -138,33 +224,6 @@ export function EditorPage() {
 		// We emit a custom event that GridCanvas can listen for
 		window.dispatchEvent(new CustomEvent("patternforge:fit-to-view"));
 	}, []);
-
-	// Name editing
-	const handleNameClick = useCallback(() => {
-		if (!pattern) return;
-		setEditName(pattern.metadata.name);
-		setIsEditingName(true);
-		setTimeout(() => nameInputRef.current?.focus(), 50);
-	}, [pattern]);
-
-	const handleNameSubmit = useCallback(() => {
-		const trimmed = editName.trim();
-		if (trimmed && pattern) {
-			updatePatternMetadata({ name: trimmed });
-		}
-		setIsEditingName(false);
-	}, [editName, pattern, updatePatternMetadata]);
-
-	const handleNameKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Enter") {
-				handleNameSubmit();
-			} else if (e.key === "Escape") {
-				setIsEditingName(false);
-			}
-		},
-		[handleNameSubmit],
-	);
 
 	// Keyboard shortcuts
 	const shortcuts = useMemo(
@@ -191,6 +250,31 @@ export function EditorPage() {
 			"=": () => handleZoomIn(),
 			"-": () => handleZoomOut(),
 			"?": () => toggleShortcuts(),
+			Escape: () => {
+				if (selectionRect) {
+					setSelectionRect(null);
+				}
+			},
+			Delete: () => {
+				if (selectionRect && pattern) {
+					const minRow = Math.min(selectionRect.startRow, selectionRect.endRow);
+					const maxRow = Math.max(selectionRect.startRow, selectionRect.endRow);
+					const minCol = Math.min(selectionRect.startCol, selectionRect.endCol);
+					const maxCol = Math.max(selectionRect.startCol, selectionRect.endCol);
+					const cells: Array<{ row: number; col: number; data: Partial<import("@/engine/grid/grid").Cell> }> = [];
+					for (let r = minRow; r <= maxRow; r++) {
+						for (let c = minCol; c <= maxCol; c++) {
+							cells.push({ row: r, col: c, data: { color: null, symbol: null, stitchType: "full" as const, completed: false } });
+						}
+					}
+					executeCommand({ cells }, pattern.grid.width, pattern.grid.height);
+					for (const cell of cells) {
+						pattern.grid.setCell(cell.row, cell.col, cell.data);
+					}
+					updateGrid(() => {});
+					setSelectionRect(null);
+				}
+			},
 		}),
 		[
 			undo,
@@ -201,6 +285,11 @@ export function EditorPage() {
 			handleZoomOut,
 			handleFitToView,
 			toggleShortcuts,
+			selectionRect,
+			setSelectionRect,
+			pattern,
+			executeCommand,
+			updateGrid,
 		],
 	);
 
@@ -319,21 +408,8 @@ export function EditorPage() {
 	if (!pattern) {
 		return (
 			<div className="flex h-full flex-col bg-surface">
-				<header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
-					<h1 className="text-sm font-semibold text-text-primary">
-						Pattern Editor
-					</h1>
-					<button
-						type="button"
-						className="inline-flex items-center gap-1.5 rounded-md bg-craft-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-craft-700"
-						onClick={() => setShowNewPattern(true)}
-					>
-						<Plus className="h-3.5 w-3.5" />
-						New Pattern
-					</button>
-				</header>
 				<main className="flex flex-1 items-center justify-center bg-surface-tertiary">
-					<div className="flex flex-col items-center gap-4 text-center">
+					<div className="flex flex-col items-center gap-4 text-center px-6">
 						<div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-border-strong text-text-muted">
 							<Pencil className="h-7 w-7" />
 						</div>
@@ -365,150 +441,45 @@ export function EditorPage() {
 	// Full editor layout
 	return (
 		<div className="flex h-full flex-col bg-surface">
-			{/* Top Bar */}
-			<header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4">
-				{/* Left: Pattern name */}
-				<div className="flex items-center gap-3">
-					{isEditingName ? (
-						<input
-							ref={nameInputRef}
-							type="text"
-							value={editName}
-							onChange={(e) => setEditName(e.target.value)}
-							onBlur={handleNameSubmit}
-							onKeyDown={handleNameKeyDown}
-							className="w-48 rounded border border-craft-500 bg-surface-tertiary px-2 py-1 text-sm font-semibold text-text-primary focus:outline-none"
-						/>
-					) : (
-						<h1
-							className="cursor-pointer text-sm font-semibold text-text-primary hover:text-craft-600"
-							onClick={handleNameClick}
-							title="Click to rename"
-						>
-							{pattern.metadata.name}
-							{isDirty && <span className="ml-1 text-craft-500">*</span>}
-						</h1>
-					)}
-				</div>
-
-				{/* Center: Undo/Redo + Zoom */}
-				<div className="flex items-center gap-1">
-					<button
-						type="button"
-						className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary disabled:opacity-30"
-						title="Undo (Ctrl+Z)"
-						onClick={undo}
-						disabled={!canUndo}
-					>
-						<Undo2 className="h-4 w-4" />
-					</button>
-					<button
-						type="button"
-						className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary disabled:opacity-30"
-						title="Redo (Ctrl+Shift+Z)"
-						onClick={redo}
-						disabled={!canRedo}
-					>
-						<Redo2 className="h-4 w-4" />
-					</button>
-
-					<div className="mx-2 h-5 w-px bg-border" />
-
-					<button
-						type="button"
-						className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-						title="Zoom Out (-)"
-						onClick={handleZoomOut}
-					>
-						<ZoomOut className="h-4 w-4" />
-					</button>
-					<button
-						type="button"
-						className="min-w-[3.5rem] rounded px-2 py-1 text-center text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-						title="Fit to View (Ctrl+0)"
-						onClick={handleFitToView}
-					>
-						{Math.round(zoom * 100)}%
-					</button>
-					<button
-						type="button"
-						className="rounded p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-						title="Zoom In (+)"
-						onClick={handleZoomIn}
-					>
-						<ZoomIn className="h-4 w-4" />
-					</button>
-				</div>
-
-				{/* Right: Export + Progress + Save */}
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-					onClick={() => setShowShareDialog(true)}
-					disabled={!pattern}
-				>
-					<Share2 className="h-3.5 w-3.5" />
-					Share
-				</button>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-					onClick={() => setShowExportDialog(true)}
-					disabled={!pattern}
-				>
-					<Download className="h-3.5 w-3.5" />
-					Export
-				</button>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-					onClick={() => setShowInstructionsDialog(true)}
-					disabled={!pattern}
-				>
-					<FileText className="h-3.5 w-3.5" />
-					Instructions
-				</button>
-				<button
-					type="button"
-					className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-						showProgressPanel
-							? "bg-craft-600 text-white"
-							: "border border-border text-text-secondary hover:bg-surface-tertiary hover:text-text-primary"
-					}`}
-					onClick={() => setShowProgressPanel((v) => !v)}
-					disabled={!pattern}
-				>
-					<BarChart3 className="h-3.5 w-3.5" />
-					Progress
-				</button>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1.5 rounded-md bg-craft-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-craft-700"
-					onClick={handleSave}
-					disabled={!isDirty}
-				>
-					<Save className="h-3.5 w-3.5" />
-					Save
-				</button>
-			</header>
+			{/* Editor navigation bar */}
+			<EditorNav
+				onSave={handleSave}
+				onShare={() => setShowShareDialog(true)}
+				onExport={() => setShowExportDialog(true)}
+				onInstructions={() => setShowInstructionsDialog(true)}
+				onProgress={() => setShowProgressPanel((v) => !v)}
+			/>
 
 			{/* Main content area */}
 			<div className="flex flex-1 overflow-hidden">
-				{/* Left: Tool palette */}
-				{showToolPanel && <ToolPalette />}
+				{/* Left: Tool palette (hidden on mobile) */}
+				{showToolPanel && (
+					<div className="hidden md:flex">
+						<ToolPalette />
+					</div>
+				)}
 
 				{/* Center: Canvas */}
-				<div className="relative flex-1 overflow-hidden">
+				<div className="relative flex-1 overflow-hidden pb-14 md:pb-0">
 					<GridCanvas executeCommand={executeCommand} />
 					<Minimap width={0} height={0} />
 				</div>
 
-				{/* Right: Color palette */}
-				{showColorPanel && <ColorPalette />}
+				{/* Right: Color palette (hidden on mobile) */}
+				{showColorPanel && (
+					<div className="hidden md:flex">
+						<ColorPalette />
+					</div>
+				)}
 			</div>
 
-			{/* Bottom: Status bar */}
-			<StatusBar cursorPos={null} />
+			{/* Bottom: Status bar (desktop only — mobile has bottom tool strip) */}
+			<div className="hidden md:block">
+				<StatusBar cursorPos={null} />
+			</div>
+
+			{/* Mobile bottom tool strip */}
+			<MobileToolStrip />
 
 			{/* Dialogs */}
 			<NewPatternDialog

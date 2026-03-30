@@ -11,6 +11,7 @@ import { usePatternStore } from "@/shared/stores/pattern-store";
 import { useProgressStore } from "@/features/progress/progress-store";
 import { CheckCircle, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FocusTrap } from "@/shared/ui";
 
 export interface ProgressPanelProps {
   open: boolean;
@@ -92,14 +93,21 @@ export function ProgressPanel({ open, onClose }: ProgressPanelProps) {
       />
 
       {/* Panel */}
-      <aside className="fixed right-0 top-0 z-50 flex h-full w-72 flex-col border-l border-border bg-surface shadow-xl">
+      <FocusTrap active={open} onEscape={onClose}>
+      <aside
+        className="fixed right-0 top-0 z-50 flex h-full w-72 flex-col border-l border-border bg-surface shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="progress-panel-title"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-text-primary">Progress</h2>
+          <h2 id="progress-panel-title" className="text-sm font-semibold text-text-primary">Progress</h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded p-1 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+            aria-label="Close progress panel"
           >
             <X className="h-4 w-4" />
           </button>
@@ -196,6 +204,7 @@ export function ProgressPanel({ open, onClose }: ProgressPanelProps) {
           </button>
         </div>
       </aside>
+      </FocusTrap>
     </>
   );
 }

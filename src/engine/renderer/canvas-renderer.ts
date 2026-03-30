@@ -183,11 +183,17 @@ export class CanvasRenderer {
     const ecs = this.effectiveCellSize();
     const x = this.viewport.offsetX + cell.col * ecs;
     const y = this.viewport.offsetY + cell.row * ecs;
+    const size = Math.ceil(ecs);
 
-    // Fill color
+    // Fill color (for all stitch types, the base color is always filled)
     if (cell.color !== null) {
       ctx.fillStyle = cell.color;
-      ctx.fillRect(x, y, Math.ceil(ecs), Math.ceil(ecs));
+      ctx.fillRect(x, y, size, size);
+    }
+
+    // Render stitch-type specific overlay when zoomed in enough
+    if (ecs >= 8) {
+      this.renderStitchOverlay(cell, x, y, ecs);
     }
 
     // Draw symbol
@@ -198,6 +204,120 @@ export class CanvasRenderer {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(cell.symbol, x + ecs / 2, y + ecs / 2);
+    }
+  }
+
+  /** Render stitch-type specific visual overlay. */
+  private renderStitchOverlay(cell: Cell, x: number, y: number, ecs: number): void {
+    const { ctx } = this;
+    const size = Math.ceil(ecs);
+    const contrast = this.getContrastColor(cell.color);
+
+    switch (cell.stitchType) {
+      case 'full':
+        // Default — already rendered as full square
+        break;
+
+      case 'half': {
+        // Bottom-left half filled — draw top-right triangle with empty color
+        ctx.fillStyle = this._options.emptyCellColor;
+        ctx.beginPath();
+        ctx.moveTo(x + size, y);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + size, y + size);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+
+      case 'quarter': {
+        // Top-left quarter — clear bottom-right 3/4
+        ctx.fillStyle = this._options.emptyCellColor;
+        ctx.beginPath();
+        ctx.moveTo(x + size, y);
+        ctx.lineTo(x, y + size);
+        ctx.lineTo(x + size, y + size);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+
+      case 'backstitch': {
+        // Diagonal line through cell center
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(x + size * 0.2, y + size * 0.2);
+        ctx.lineTo(x + size * 0.8, y + size * 0.8);
+        ctx.stroke();
+        break;
+      }
+
+      case 'french-knot': {
+        // Small filled circle in center
+        ctx.fillStyle = contrast;
+        const radius = Math.max(1.5, ecs * 0.2);
+        ctx.beginPath();
+        ctx.arc(x + ecs / 2, y + ecs / 2, radius, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+
+      case 'purl': {
+        // Small horizontal dash (purl bump)
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.1);
+        ctx.beginPath();
+        ctx.moveTo(x + size * 0.15, y + ecs * 0.5);
+        ctx.lineTo(x + size * 0.85, y + ecs * 0.5);
+        ctx.stroke();
+        break;
+      }
+
+      case 'knit': {
+        // "V" shape (knit stitch)
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.1);
+        ctx.beginPath();
+        ctx.moveTo(x + size * 0.15, y + size * 0.2);
+        ctx.lineTo(x + ecs / 2, y + size * 0.8);
+        ctx.lineTo(x + size * 0.85, y + size * 0.2);
+        ctx.stroke();
+        break;
+      }
+
+      case 'yarn-over': {
+        // Small circle outline
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.1);
+        const radius = Math.max(1.5, ecs * 0.2);
+        ctx.beginPath();
+        ctx.arc(x + ecs / 2, y + ecs / 2, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+
+      case 'increase': {
+        // Right-leaning slash
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(x + size * 0.2, y + size * 0.8);
+        ctx.lineTo(x + size * 0.8, y + size * 0.2);
+        ctx.stroke();
+        break;
+      }
+
+      case 'decrease': {
+        // Left-leaning slash
+        ctx.strokeStyle = contrast;
+        ctx.lineWidth = Math.max(1, ecs * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(x + size * 0.2, y + size * 0.2);
+        ctx.lineTo(x + size * 0.8, y + size * 0.8);
+        ctx.stroke();
+        break;
+      }
     }
   }
 

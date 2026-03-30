@@ -5,7 +5,15 @@
  */
 
 import type { ToolType } from "@/engine/tools/tools";
+import type { StitchType } from "@/engine/grid/grid";
 import { create } from "zustand";
+
+export interface SelectionRect {
+	startRow: number;
+	startCol: number;
+	endRow: number;
+	endCol: number;
+}
 
 interface EditorState {
 	// -- Active tool --
@@ -32,6 +40,13 @@ interface EditorState {
 	setActiveColor: (color: string) => void;
 	activeSymbol: string | null;
 	setActiveSymbol: (symbol: string | null) => void;
+	activeStitchType: StitchType;
+	setActiveStitchType: (type: StitchType) => void;
+
+	// -- Selection --
+
+	selectionRect: SelectionRect | null;
+	setSelectionRect: (rect: SelectionRect | null) => void;
 
 	// -- Viewport --
 
@@ -85,6 +100,12 @@ export const useEditorStore = create<EditorState>()((set) => ({
 	setActiveColor: (color) => set({ activeColor: color }),
 	activeSymbol: null,
 	setActiveSymbol: (symbol) => set({ activeSymbol: symbol }),
+	activeStitchType: "full" as StitchType,
+	setActiveStitchType: (type) => set({ activeStitchType: type }),
+
+	// Selection
+	selectionRect: null,
+	setSelectionRect: (rect) => set({ selectionRect: rect }),
 
 	// Viewport
 	zoom: 1,

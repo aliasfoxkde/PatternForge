@@ -193,24 +193,22 @@ export function ImageConverterPage() {
 	return (
 		<div className="flex h-full flex-col bg-surface">
 			{/* Header */}
-			<header className="flex items-center justify-between border-b border-border px-6 py-4">
-				<div className="flex items-center gap-3">
-					<button
-						type="button"
-						onClick={() => navigate("/")}
-						className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
-						title="Back to home"
-					>
-						<ArrowLeft className="h-4 w-4" />
-					</button>
-					<div>
-						<h1 className="text-xl font-bold text-text-primary">
-							Image to Pattern
-						</h1>
-						<p className="mt-0.5 text-sm text-text-secondary">
-							Convert photos and artwork into craft patterns
-						</p>
-					</div>
+			<header className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+				<button
+					type="button"
+					onClick={() => navigate("/")}
+					className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+					title="Back to home"
+				>
+					<ArrowLeft className="h-4 w-4" />
+				</button>
+				<div>
+					<h1 className="text-lg font-bold text-text-primary sm:text-xl">
+						Image to Pattern
+					</h1>
+					<p className="hidden text-sm text-text-secondary sm:block">
+						Convert photos and artwork into craft patterns
+					</p>
 				</div>
 			</header>
 
@@ -238,7 +236,7 @@ export function ImageConverterPage() {
 				</div>
 
 				{/* Right column: Preview */}
-				<div className="flex flex-1 items-center justify-center overflow-auto p-6">
+				<div className="flex flex-1 items-center justify-center overflow-auto p-4 sm:p-6">
 					<div className="flex w-full max-w-3xl flex-col gap-4">
 						<PatternPreview
 							processedImage={processedImage}

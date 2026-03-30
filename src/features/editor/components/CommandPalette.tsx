@@ -7,6 +7,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
+import { FocusTrap } from '@/shared/ui';
 
 export interface CommandItem {
 	id: string;
@@ -67,14 +68,18 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
+		<div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]" role="presentation">
 			{/* Backdrop */}
-			<div className="absolute inset-0 bg-black/40" onClick={onClose} onKeyDown={undefined} />
+			<div className="absolute inset-0 bg-black/40" onClick={onClose} onKeyDown={undefined} role="presentation" />
 
 			{/* Palette */}
+			<FocusTrap active={open} onEscape={onClose}>
 			<div
 				className="relative z-10 w-full max-w-lg overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
 				onKeyDown={handleKeyDown}
+				role="dialog"
+				aria-modal="true"
+				aria-label="Command palette"
 			>
 				{/* Search input */}
 				<div className="flex items-center gap-2 border-b border-border px-4 py-3">
@@ -131,6 +136,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
 					</div>
 				)}
 			</div>
+			</FocusTrap>
 		</div>
 	);
 }

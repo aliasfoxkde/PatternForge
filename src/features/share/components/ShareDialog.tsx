@@ -7,6 +7,7 @@ import { serializePattern } from "@/engine/pattern/types";
 import type { Pattern } from "@/engine/pattern/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, Globe, Lock, Loader2, Share2 } from "lucide-react";
+import { FocusTrap } from "@/shared/ui";
 
 interface ShareDialogProps {
   open: boolean;
@@ -66,11 +67,17 @@ export function ShareDialog({ open, onClose, pattern }: ShareDialogProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="presentation">
+      <FocusTrap active={open} onEscape={onClose}>
+      <div
+        className="mx-4 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-dialog-title"
+      >
         <div className="mb-4 flex items-center gap-2">
           <Share2 className="h-5 w-5 text-craft-600" />
-          <h2 className="text-lg font-semibold text-text-primary">Share Pattern</h2>
+          <h2 id="share-dialog-title" className="text-lg font-semibold text-text-primary">Share Pattern</h2>
         </div>
 
         {sharedUrl ? (
@@ -217,6 +224,7 @@ export function ShareDialog({ open, onClose, pattern }: ShareDialogProps) {
           </div>
         )}
       </div>
+      </FocusTrap>
     </div>
   );
 }

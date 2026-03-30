@@ -24,7 +24,7 @@ export function StatusBar({ cursorPos }: StatusBarProps) {
 	const gridHeight = pattern?.grid.height ?? 0;
 
 	return (
-		<div className="flex h-6 items-center justify-between border-t border-border bg-surface-secondary px-3 text-[11px] text-text-muted">
+		<div className="flex h-6 items-center justify-between border-t border-border bg-surface-secondary px-3 text-[11px] text-text-muted" role="status" aria-live="polite">
 			<span>
 				{cursorPos
 					? `Row: ${cursorPos.row}, Col: ${cursorPos.col}`
