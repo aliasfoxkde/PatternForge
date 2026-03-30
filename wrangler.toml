@@ -5,7 +5,7 @@ pages_build_output_dir = "dist"
 
 [vars]
 APP_NAME = "PatternForge"
-APP_URL = "https://patternforge.pages.dev"
+APP_URL = "https://patternforge-er4.pages.dev"
 
 # D1 database for shared patterns
 [[d1_databases]]
