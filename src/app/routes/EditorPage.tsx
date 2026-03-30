@@ -23,7 +23,7 @@ import { ToolPalette } from "@/features/editor/components/ToolPalette";
 import { ExportDialog } from "@/features/export/components/ExportDialog";
 import { InstructionsPanel } from "@/features/instructions/components/InstructionsPanel";
 import { ProgressPanel } from "@/features/progress/components/ProgressPanel";
-import { ShareDialog } from "@/features/share/components/ShareDialog";
+import { ShareDialog } from "@/features/share/components";
 import { useAutoSave } from "@/shared/hooks/use-auto-save";
 import { useHistoryManager } from "@/shared/hooks/use-history-manager";
 import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";

@@ -168,7 +168,7 @@ export function ImageDropZone({
 					<button
 						type="button"
 						onClick={handleClear}
-						className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface/80 text-text-secondary shadow-sm transition-colors hover:bg-red-100 hover:text-red-600"
+						className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface/80 text-text-secondary shadow-sm transition-colors hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-600"
 						title="Remove image"
 					>
 						<X className="h-4 w-4" />

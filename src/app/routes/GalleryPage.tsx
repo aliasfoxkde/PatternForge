@@ -199,7 +199,7 @@ export function GalleryPage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteLocal(pattern.id)}
-                        className="rounded p-1.5 text-text-secondary transition-colors hover:bg-red-50 hover:text-red-500"
+                        className="rounded p-1.5 text-text-secondary transition-colors hover:bg-red-100 dark:hover:bg-red-900 hover:text-red-500"
                         title="Delete"
                       >
                         <X className="h-4 w-4" />
