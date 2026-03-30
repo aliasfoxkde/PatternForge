@@ -12,10 +12,13 @@ import { Link2, Link2Off } from 'lucide-react';
 export interface GridSizeControlsProps {
 	width: number;
 	height: number;
+	/** Optional history-aware resize callback. Falls back to store resizeGrid. */
+	onResize?: (width: number, height: number) => void;
 }
 
-export function GridSizeControls({ width, height }: GridSizeControlsProps) {
-	const resizeGrid = usePatternStore((s) => s.resizeGrid);
+export function GridSizeControls({ width, height, onResize }: GridSizeControlsProps) {
+	const storeResizeGrid = usePatternStore((s) => s.resizeGrid);
+	const resizeGrid = onResize ?? storeResizeGrid;
 
 	const [editWidth, setEditWidth] = useState(width);
 	const [editHeight, setEditHeight] = useState(height);

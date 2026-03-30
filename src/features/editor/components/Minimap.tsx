@@ -7,7 +7,7 @@
  * so the main canvas can center on that position.
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { memo, useRef, useEffect, useCallback } from 'react';
 import { usePatternStore } from '@/shared/stores/pattern-store';
 import { useEditorStore } from '@/shared/stores/editor-store';
 
@@ -25,7 +25,7 @@ interface ViewportEventDetail {
 	zoom: number;
 }
 
-export function Minimap({ width: containerWidth, height: containerHeight }: MinimapProps) {
+function MinimapInner({ width: containerWidth, height: containerHeight }: MinimapProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const viewportRef = useRef<ViewportEventDetail>({ offsetX: 0, offsetY: 0, zoom: 1 });
 
@@ -137,3 +137,5 @@ export function Minimap({ width: containerWidth, height: containerHeight }: Mini
 		</div>
 	);
 }
+
+export const Minimap = memo(MinimapInner);

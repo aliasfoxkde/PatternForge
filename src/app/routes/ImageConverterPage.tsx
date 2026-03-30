@@ -13,6 +13,8 @@
 
 import { processImage } from "@/engine/image/image-processor";
 import type { ProcessedImage } from "@/engine/image/image-processor";
+import { oklchToHex } from "@/engine/color/colors";
+import { findNearestDmcColor } from "@/data/color-matching";
 import { useToast } from "@/shared/hooks/use-toast";
 import {
 	ConverterSettings,
@@ -33,6 +35,7 @@ const DEFAULT_SETTINGS: ConverterSettingsState = {
 	maxColors: 30,
 	dithering: "floyd-steinberg",
 	confettiReduction: 50,
+	matchToDmc: true,
 };
 
 function extractImageData(dataUrl: string): Promise<ImageData> {
@@ -106,7 +109,41 @@ export function ImageConverterPage() {
 					confettiReduction: settings.confettiReduction / 100,
 					colorSpace: "oklch",
 				});
-				setProcessedImage(result);
+
+				// If DMC matching is enabled, remap palette to nearest DMC floss
+				if (settings.matchToDmc) {
+					const dmcMapping = new Map<string, string>();
+					const dmcPalette: string[] = [];
+
+					for (const oklchColor of result.palette) {
+						let mapped: string;
+						if (dmcMapping.has(oklchColor)) {
+							mapped = dmcMapping.get(oklchColor)!;
+						} else {
+							const hex = oklchToHex(oklchColor);
+							const dmc = findNearestDmcColor(hex);
+							mapped = dmc ? dmc.hex : hex;
+							dmcMapping.set(oklchColor, mapped);
+						}
+						if (!dmcPalette.includes(mapped)) {
+							dmcPalette.push(mapped);
+						}
+					}
+
+					// Remap cells to DMC colors
+					const dmcCells = result.cells.map((cell) => ({
+						...cell,
+						color: dmcMapping.get(cell.color) ?? cell.color,
+					}));
+
+					setProcessedImage({
+						...result,
+						cells: dmcCells,
+						palette: dmcPalette,
+					});
+				} else {
+					setProcessedImage(result);
+				}
 			} catch (error) {
 				console.error("[ImageConverter] Processing failed:", error);
 				toast.error("Image processing failed. Try adjusting settings.");
@@ -128,6 +165,7 @@ export function ImageConverterPage() {
 		settings.maxColors,
 		settings.dithering,
 		settings.confettiReduction,
+		settings.matchToDmc,
 	]);
 
 	// Handle image upload
@@ -164,19 +202,19 @@ export function ImageConverterPage() {
 		});
 
 		// Build palette from converted colors
-		const paletteColors = palette.map((_color, index) => ({
+		const paletteColors = palette.map((color, index) => ({
 			id: `color-${index}`,
 			name: `Color ${index + 1}`,
-			hex: "", // Will be resolved by the palette system
+			hex: color,
 			oklch: { mode: "oklch" as const, l: 0, c: 0, h: 0 },
-			brand: null,
+			brand: settings.matchToDmc ? "DMC" : null,
 			threadNumber: null,
 			symbol: null,
 		}));
 
 		setPalette({
 			id: `palette-${id}`,
-			name: "Converted Palette",
+			name: settings.matchToDmc ? "DMC Floss Palette" : "Converted Palette",
 			colors: paletteColors,
 		});
 
@@ -185,6 +223,7 @@ export function ImageConverterPage() {
 	}, [
 		processedImage,
 		settings.craftType,
+		settings.matchToDmc,
 		createPattern,
 		updateGrid,
 		setPalette,
@@ -246,6 +285,7 @@ export function ImageConverterPage() {
 							isProcessing={isProcessing}
 							onOpenInEditor={handleOpenInEditor}
 							originalImageUrl={imageDataUrl}
+							isDmcMatched={settings.matchToDmc}
 						/>
 					</div>
 				</div>

@@ -15,18 +15,22 @@ import { CommandPalette } from "@/features/editor/components/CommandPalette";
 import type { CommandItem } from "@/features/editor/components/CommandPalette";
 import { GridCanvas } from "@/features/editor/components/GridCanvas";
 import { KeyboardShortcuts } from "@/features/editor/components/KeyboardShortcuts";
+import { TilePreviewDialog } from "@/features/editor/components/TilePreviewDialog";
 import { Minimap } from "@/features/editor/components/Minimap";
 import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog";
 import { MobileColorPicker } from "@/features/editor/components/MobileColorPicker";
 import { StatusBar } from "@/features/editor/components/StatusBar";
 import { ToolPalette } from "@/features/editor/components/ToolPalette";
-import { ExportDialog } from "@/features/export/components/ExportDialog";
-import { InstructionsPanel } from "@/features/instructions/components/InstructionsPanel";
-import { ProgressPanel } from "@/features/progress/components/ProgressPanel";
-import { ShareDialog } from "@/features/share/components";
+import { lazy, Suspense } from "react";
 import { useAutoSave } from "@/shared/hooks/use-auto-save";
 import { useHistoryManager } from "@/shared/hooks/use-history-manager";
 import { useKeyboardShortcuts } from "@/shared/hooks/use-keyboard-shortcuts";
+
+// Lazy-load heavy dialog components to reduce initial bundle
+const ExportDialog = lazy(() => import("@/features/export/components/ExportDialog").then((m) => ({ default: m.ExportDialog })));
+const InstructionsPanel = lazy(() => import("@/features/instructions/components/InstructionsPanel").then((m) => ({ default: m.InstructionsPanel })));
+const ProgressPanel = lazy(() => import("@/features/progress/components/ProgressPanel").then((m) => ({ default: m.ProgressPanel })));
+const ShareDialog = lazy(() => import("@/features/share/components").then((m) => ({ default: m.ShareDialog })));
 import { useToast } from "@/shared/hooks/use-toast";
 import { storage } from "@/shared/storage/storage";
 import { useEditorStore } from "@/shared/stores/editor-store";
@@ -147,6 +151,7 @@ export function EditorPage() {
 	const [showInstructionsDialog, setShowInstructionsDialog] = useState(false);
 	const [showProgressPanel, setShowProgressPanel] = useState(false);
 	const [showShareDialog, setShowShareDialog] = useState(false);
+	const [showTilePreview, setShowTilePreview] = useState(false);
 
 	const toast = useToast();
 
@@ -168,7 +173,7 @@ export function EditorPage() {
 	const setSelectionRect = useEditorStore((s) => s.setSelectionRect);
 
 	// History manager
-	const { executeCommand, undo, redo } = useHistoryManager();
+	const { executeCommand, executeResize, executeApplyCells, undo, redo } = useHistoryManager();
 
 	// Auto-save
 	useAutoSave();
@@ -215,6 +220,69 @@ export function EditorPage() {
 			toast.error("Failed to save pattern");
 		}
 	}, [pattern, markSaved, toast]);
+
+	// Tile apply — history-aware: captures before/after for all cells
+	const handleApplyTile = useCallback(
+		(cells: Array<{ row: number; col: number; data: Partial<import("@/engine/grid/grid").Cell> }>, tileW: number, tileH: number) => {
+			if (!pattern) return;
+
+			const gridH = pattern.grid.height;
+			const gridW = pattern.grid.width;
+
+			// Build tiled cell map (after state)
+			const tiledMap = new Map<string, Partial<import("@/engine/grid/grid").Cell>>();
+			for (let repY = 0; repY * tileH < gridH; repY++) {
+				for (let repX = 0; repX * tileW < gridW; repX++) {
+					for (const cell of cells) {
+						const r = repY * tileH + cell.row;
+						const c = repX * tileW + cell.col;
+						if (r < gridH && c < gridW) {
+							tiledMap.set(`${r},${c}`, { ...cell.data });
+						}
+					}
+				}
+			}
+
+			// Collect all cells that will change (before → after)
+			const changes: Array<{
+				row: number;
+				col: number;
+				before: Partial<import("@/engine/grid/grid").Cell> | null;
+				after: Partial<import("@/engine/grid/grid").Cell> | null;
+			}> = [];
+
+			// Cells being removed or changed (existing cells not in tiled map)
+			const affectedKeys = new Set<string>();
+			for (const [key] of tiledMap) {
+				affectedKeys.add(key);
+			}
+
+			// Snapshot current grid cells in the affected area
+			for (let r = 0; r < gridH; r++) {
+				for (let c = 0; c < gridW; c++) {
+					const existing = pattern.grid.getCell(r, c);
+					const hasContent = existing && (existing.color || existing.symbol || existing.stitchType !== "full" || existing.completed);
+					const tiled = tiledMap.get(`${r},${c}`);
+
+					if (hasContent || tiled) {
+						changes.push({
+							row: r,
+							col: c,
+							before: hasContent
+								? { color: existing!.color, symbol: existing!.symbol, stitchType: existing!.stitchType, completed: existing!.completed }
+								: null,
+							after: tiled ?? null,
+						});
+					}
+				}
+			}
+
+			if (changes.length === 0) return;
+
+			executeApplyCells("Apply Tile", changes);
+		},
+		[pattern, executeApplyCells],
+	);
 
 	// Zoom controls
 	const handleZoomIn = useCallback(() => {
@@ -468,7 +536,7 @@ export function EditorPage() {
 				{/* Center: Canvas */}
 				<div className="relative flex-1 overflow-hidden pb-14 md:pb-0"
 					style={{ paddingBottom: "max(3.5rem, calc(3.5rem + env(safe-area-inset-bottom)))" }}>
-					<GridCanvas executeCommand={executeCommand} />
+					<GridCanvas executeCommand={executeCommand} onTilePreview={() => setShowTilePreview(true)} />
 					<Minimap width={0} height={0} />
 				</div>
 
@@ -482,7 +550,7 @@ export function EditorPage() {
 
 			{/* Bottom: Status bar (desktop only — mobile has bottom tool strip) */}
 			<div className="hidden md:block">
-				<StatusBar cursorPos={null} />
+				<StatusBar cursorPos={null} onResize={executeResize} />
 			</div>
 
 			{/* Mobile bottom tool strip */}
@@ -502,33 +570,49 @@ export function EditorPage() {
 				commands={commandItems}
 			/>
 			{pattern && (
-				<ExportDialog
-					open={showExportDialog}
-					onClose={() => setShowExportDialog(false)}
-					pattern={pattern}
-				/>
+				<Suspense fallback={null}>
+					<ExportDialog
+						open={showExportDialog}
+						onClose={() => setShowExportDialog(false)}
+						pattern={pattern}
+					/>
+				</Suspense>
 			)}
 			{pattern && (
-				<InstructionsPanel
-					open={showInstructionsDialog}
-					onClose={() => setShowInstructionsDialog(false)}
-					pattern={pattern}
-				/>
+				<Suspense fallback={null}>
+					<InstructionsPanel
+						open={showInstructionsDialog}
+						onClose={() => setShowInstructionsDialog(false)}
+						pattern={pattern}
+					/>
+				</Suspense>
 			)}
-			<ProgressPanel
-				open={showProgressPanel}
-				onClose={() => setShowProgressPanel(false)}
-			/>
+			<Suspense fallback={null}>
+				<ProgressPanel
+					open={showProgressPanel}
+					onClose={() => setShowProgressPanel(false)}
+				/>
+			</Suspense>
 			<KeyboardShortcuts
 				open={showShortcuts}
 				onClose={() => useEditorStore.getState().setShowShortcuts(false)}
 			/>
-			{pattern && (
-				<ShareDialog
-					open={showShareDialog}
-					onClose={() => setShowShareDialog(false)}
-					pattern={pattern}
+			{selectionRect && (
+				<TilePreviewDialog
+					open={showTilePreview}
+					onClose={() => setShowTilePreview(false)}
+					selectionRect={selectionRect}
+					onApplyTile={handleApplyTile}
 				/>
+			)}
+			{pattern && (
+				<Suspense fallback={null}>
+					<ShareDialog
+						open={showShareDialog}
+						onClose={() => setShowShareDialog(false)}
+						pattern={pattern}
+					/>
+				</Suspense>
 			)}
 		</div>
 	);

@@ -4,6 +4,7 @@
  * Shows cursor position, grid dimensions, zoom level, and row counter.
  */
 
+import { memo } from 'react';
 import { GridSizeControls } from '@/features/editor/components/GridSizeControls';
 import { RowCounter } from '@/features/progress/components/RowCounter';
 import { useProgressStore } from '@/features/progress/progress-store';
@@ -12,9 +13,11 @@ import { useEditorStore } from '@/shared/stores/editor-store';
 
 export interface StatusBarProps {
 	cursorPos: { row: number; col: number } | null;
+	/** Optional history-aware resize callback passed to GridSizeControls. */
+	onResize?: (width: number, height: number) => void;
 }
 
-export function StatusBar({ cursorPos }: StatusBarProps) {
+export const StatusBar = memo(function StatusBar({ cursorPos, onResize }: StatusBarProps) {
 	const pattern = usePatternStore((s) => s.pattern);
 	const zoom = useEditorStore((s) => s.zoom);
 	const currentRow = useProgressStore((s) => s.currentRow);
@@ -32,7 +35,7 @@ export function StatusBar({ cursorPos }: StatusBarProps) {
 			</span>
 			<span>
 				{pattern ? (
-					<GridSizeControls width={gridWidth} height={gridHeight} />
+					<GridSizeControls width={gridWidth} height={gridHeight} onResize={onResize} />
 				) : (
 					`${gridWidth} x ${gridHeight}`
 				)}
@@ -47,4 +50,4 @@ export function StatusBar({ cursorPos }: StatusBarProps) {
 			)}
 		</div>
 	);
-}
+});

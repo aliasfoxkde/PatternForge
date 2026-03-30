@@ -25,6 +25,7 @@ export interface ConverterSettingsState {
 	maxColors: number;
 	dithering: "none" | "floyd-steinberg" | "ordered" | "atkinson";
 	confettiReduction: number;
+	matchToDmc: boolean;
 }
 
 export interface ConverterSettingsProps {
@@ -314,6 +315,31 @@ export function ConverterSettings({
 				onChange={(v) => update({ confettiReduction: v })}
 				disabled={disabled}
 			/>
+
+			<button
+				type="button"
+				onClick={() => update({ matchToDmc: !settings.matchToDmc })}
+				disabled={disabled}
+				className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+					settings.matchToDmc
+						? "border-craft-500 bg-craft-50 text-craft-700 dark:bg-craft-900/30 dark:text-craft-300"
+						: "border-border bg-surface text-text-primary hover:bg-surface-tertiary"
+				} disabled:cursor-not-allowed disabled:opacity-50`}
+			>
+				<Palette className="h-4 w-4 shrink-0" />
+				<span className="flex-1 text-left">Match to DMC Floss</span>
+				<span
+					className={`inline-block h-4 w-7 rounded-full transition-colors ${
+						settings.matchToDmc ? "bg-craft-500" : "bg-border"
+					}`}
+				>
+					<span
+						className={`block h-3.5 w-3.5 translate-y-[1px] rounded-full bg-white shadow-sm transition-transform ${
+							settings.matchToDmc ? "translate-x-3" : "translate-x-[3px]"
+						}`}
+					/>
+				</span>
+			</button>
 		</div>
 	);
 }

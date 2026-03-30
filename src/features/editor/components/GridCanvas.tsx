@@ -17,9 +17,11 @@ import type { Cell } from '@/engine/grid/grid';
 
 export interface GridCanvasProps {
 	executeCommand: (result: ToolResult, gridWidth: number, gridHeight: number) => void;
+	/** Callback when tile preview is requested */
+	onTilePreview?: () => void;
 }
 
-export function GridCanvas({ executeCommand }: GridCanvasProps) {
+export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const rendererRef = useRef<CanvasRenderer | null>(null);
 	const animFrameRef = useRef<number>(0);
@@ -876,6 +878,7 @@ export function GridCanvas({ executeCommand }: GridCanvasProps) {
 						onCut={handleCutSelection}
 						onDelete={handleDeleteSelection}
 						onFill={handleFillSelection}
+						onTile={onTilePreview}
 					/>
 				</div>
 			)}

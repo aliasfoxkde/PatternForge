@@ -2,6 +2,7 @@
  * ToolPalette - Vertical tool palette sidebar for the editor.
  */
 
+import { memo } from 'react';
 import { useEditorStore } from '@/shared/stores/editor-store';
 import type { ToolType } from '@/engine/tools/tools';
 import type { StitchType } from '@/engine/grid/grid';
@@ -98,7 +99,7 @@ function ToolButton({
 	);
 }
 
-export function ToolPalette() {
+export const ToolPalette = memo(function ToolPalette() {
 	const activeTool = useEditorStore((s) => s.activeTool);
 	const setActiveTool = useEditorStore((s) => s.setActiveTool);
 	const mirrorHorizontal = useEditorStore((s) => s.mirrorHorizontal);
@@ -212,4 +213,4 @@ export function ToolPalette() {
 			</button>
 		</aside>
 	);
-}
+});

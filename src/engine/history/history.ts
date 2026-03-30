@@ -8,6 +8,7 @@
  */
 
 import type { Cell, PatternGrid } from '@/engine/grid/grid';
+import type { PatternPalette } from '@/engine/pattern/types';
 
 // ---------------------------------------------------------------------------
 // Command interface
@@ -118,6 +119,66 @@ export class ResizeGridCommand implements Command {
         grid.setCell(entry.row, entry.col, entry.data);
       }
     }
+  }
+}
+
+/**
+ * Command that clears all cells from the grid.
+ *
+ * On `execute`, all cells are saved and cleared. On `undo`, the saved cells
+ * are restored.
+ */
+export class ClearGridCommand implements Command {
+  readonly id: string;
+  readonly description: string;
+  private readonly savedCells: Array<{ row: number; col: number; data: Partial<Cell> }>;
+
+  constructor(savedCells: Array<{ row: number; col: number; data: Partial<Cell> }>) {
+    this.id = crypto.randomUUID();
+    this.description = `Clear grid (${savedCells.length} cells)`;
+    this.savedCells = savedCells;
+  }
+
+  execute(grid: PatternGrid): void {
+    grid.clearAll();
+  }
+
+  undo(grid: PatternGrid): void {
+    for (const entry of this.savedCells) {
+      grid.setCell(entry.row, entry.col, entry.data);
+    }
+  }
+}
+
+/**
+ * Command that replaces the entire color palette.
+ *
+ * On `execute`, the new palette is stored on the PatternGrid's parent pattern.
+ * On `undo`, the old palette is restored.
+ *
+ * Note: This command operates on the palette reference, not the grid itself.
+ * The `execute` and `undo` methods are no-ops on the grid — the actual
+ * palette swap is handled by the history manager's caller.
+ */
+export class SetPaletteCommand implements Command {
+  readonly id: string;
+  readonly description: string;
+  readonly oldPalette: PatternPalette;
+  readonly newPalette: PatternPalette;
+
+  constructor(oldPalette: PatternPalette, newPalette: PatternPalette) {
+    this.id = crypto.randomUUID();
+    this.description = `Set palette (${newPalette.colors.length} colors)`;
+    this.oldPalette = oldPalette;
+    this.newPalette = newPalette;
+  }
+
+  execute(_grid: PatternGrid): void {
+    // Palette is applied via store callback, not grid mutation
+  }
+
+  undo(_grid: PatternGrid): void {
+    // Palette is restored via store callback, not grid mutation
   }
 }
 

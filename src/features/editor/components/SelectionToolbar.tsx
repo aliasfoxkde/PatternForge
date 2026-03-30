@@ -4,7 +4,8 @@
  * Provides copy, cut, delete, and fill actions for the selected area.
  */
 
-import { Copy, Scissors, Trash2, PaintBucket } from "lucide-react";
+import { memo } from "react";
+import { Copy, Scissors, Trash2, PaintBucket, Grid3X3 } from "lucide-react";
 
 interface SelectionToolbarProps {
 	/** Callback for copy action */
@@ -15,14 +16,17 @@ interface SelectionToolbarProps {
 	onDelete: () => void;
 	/** Callback for fill action */
 	onFill: () => void;
+	/** Callback for tile preview action */
+	onTile?: () => void;
 }
 
-export function SelectionToolbar({ onCopy, onCut, onDelete, onFill }: SelectionToolbarProps) {
+export const SelectionToolbar = memo(function SelectionToolbar({ onCopy, onCut, onDelete, onFill, onTile }: SelectionToolbarProps) {
 	const actions = [
 		{ icon: Copy, label: "Copy", action: onCopy },
 		{ icon: Scissors, label: "Cut", action: onCut },
 		{ icon: Trash2, label: "Delete", action: onDelete },
 		{ icon: PaintBucket, label: "Fill", action: onFill },
+		...(onTile ? [{ icon: Grid3X3, label: "Tile Preview", action: onTile }] : []),
 	];
 
 	return (
@@ -40,4 +44,4 @@ export function SelectionToolbar({ onCopy, onCut, onDelete, onFill }: SelectionT
 			))}
 		</div>
 	);
-}
+});

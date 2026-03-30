@@ -5,8 +5,59 @@ import { listSharedPatterns } from "@/shared/api/cloud-api";
 import type { SharedPatternSummary } from "@/shared/api/cloud-api";
 import { storage } from "@/shared/storage/storage";
 import type { PatternRecord } from "@/shared/storage/storage";
+import { STARTER_PATTERNS, STARTER_CATEGORIES } from "@/data/starter-patterns";
+import type { StarterPattern } from "@/data/starter-patterns";
 
-type Tab = "local" | "community";
+type Tab = "local" | "templates" | "community";
+
+/** Mini canvas preview for a starter template */
+function TemplatePreviewMini({ template }: { template: StarterPattern }) {
+  const canvasRef = useCallback(
+    (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return;
+      const maxDim = Math.max(template.width, template.height);
+      const cellSize = Math.max(1, Math.floor(120 / maxDim));
+      canvas.width = template.width * cellSize;
+      canvas.height = template.height * cellSize;
+      canvas.style.width = `${template.width * cellSize}px`;
+      canvas.style.height = `${template.height * cellSize}px`;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // White background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw cells
+      for (const [row, col, color] of template.cells) {
+        ctx.fillStyle = color;
+        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+      }
+
+      // Grid lines if cells are big enough
+      if (cellSize >= 4) {
+        ctx.strokeStyle = "rgba(0,0,0,0.06)";
+        ctx.lineWidth = 0.5;
+        for (let r = 0; r <= template.height; r++) {
+          ctx.beginPath();
+          ctx.moveTo(0, r * cellSize);
+          ctx.lineTo(canvas.width, r * cellSize);
+          ctx.stroke();
+        }
+        for (let c = 0; c <= template.width; c++) {
+          ctx.beginPath();
+          ctx.moveTo(c * cellSize, 0);
+          ctx.lineTo(c * cellSize, canvas.height);
+          ctx.stroke();
+        }
+      }
+    },
+    [template],
+  );
+
+  return <canvas ref={canvasRef} className="rounded" />;
+}
 
 export function GalleryPage() {
   const [tab, setTab] = useState<Tab>("local");
@@ -15,6 +66,7 @@ export function GalleryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [templateFilter, setTemplateFilter] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const loadLocal = useCallback(async () => {
@@ -59,6 +111,65 @@ export function GalleryPage() {
     [],
   );
 
+  const handleLoadTemplate = useCallback(
+    (template: StarterPattern) => {
+      const record = {
+        id: crypto.randomUUID(),
+        name: template.name,
+        craftType: template.craftType,
+        data: JSON.stringify({
+          metadata: {
+            name: template.name,
+            description: template.description,
+            author: "PatternForge",
+            craftType: template.craftType,
+            tags: ["template", template.category],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            version: 1,
+            cellSize: 20,
+            notes: "",
+          },
+          grid: {
+            width: template.width,
+            height: template.height,
+            cells: template.cells.map(([row, col, color]) => ({
+              key: `${row},${col}`,
+              row,
+              col,
+              data: { color },
+            })),
+          },
+          palette: {
+            id: `palette-${template.id}`,
+            name: `${template.name} Palette`,
+            colors: template.palette.map((hex, i) => ({
+              id: `color-${i}`,
+              name: `Color ${i + 1}`,
+              hex,
+              oklch: { mode: "oklch", l: 0, c: 0, h: 0 },
+              brand: null,
+              threadNumber: null,
+              symbol: null,
+            })),
+          },
+        }),
+        thumbnail: "",
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+        version: 1,
+      };
+      storage.savePattern(record).then(() => {
+        navigate(`/editor/${record.id}`);
+      });
+    },
+    [navigate],
+  );
+
+  const filteredTemplates = templateFilter
+    ? STARTER_PATTERNS.filter((t) => t.category === templateFilter)
+    : STARTER_PATTERNS;
+
   return (
     <div className="flex h-full w-full flex-col bg-surface">
       {/* Header */}
@@ -85,6 +196,17 @@ export function GalleryPage() {
           }`}
         >
           Local Patterns
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("templates")}
+          className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
+            tab === "templates"
+              ? "border-craft-600 text-craft-600"
+              : "border-transparent text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Templates
         </button>
         <button
           type="button"
@@ -210,6 +332,63 @@ export function GalleryPage() {
               ))}
             </div>
           )
+        ) : tab === "templates" ? (
+          <>
+            {/* Category filters */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTemplateFilter(null)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  templateFilter === null
+                    ? "bg-craft-600 text-white"
+                    : "bg-surface-tertiary text-text-secondary hover:bg-border"
+                }`}
+              >
+                All
+              </button>
+              {STARTER_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setTemplateFilter(templateFilter === cat ? null : cat)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    templateFilter === cat
+                      ? "bg-craft-600 text-white"
+                      : "bg-surface-tertiary text-text-secondary hover:bg-border"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {filteredTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-shadow hover:shadow-md"
+                >
+                  {/* Preview area */}
+                  <button
+                    type="button"
+                    onClick={() => handleLoadTemplate(template)}
+                    className="flex aspect-square items-center justify-center bg-surface-secondary p-2"
+                    title={`Load ${template.name}`}
+                  >
+                    <TemplatePreviewMini template={template} />
+                  </button>
+                  <div className="p-3">
+                    <p className="truncate text-sm font-medium text-text-primary">{template.name}</p>
+                    <p className="mt-0.5 text-xs text-text-muted">{template.description}</p>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                      <span>{template.width} x {template.height}</span>
+                      <span>{template.craftType}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : loading ? (
           <div className="flex items-center justify-center py-12 text-text-muted">
             Loading community patterns...

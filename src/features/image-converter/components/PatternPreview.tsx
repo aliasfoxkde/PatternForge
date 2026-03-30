@@ -10,6 +10,8 @@
 
 import { oklchToHex } from "@/engine/color/colors";
 import type { ProcessedImage } from "@/engine/image/image-processor";
+import { findNearestDmcColor } from "@/data/color-matching";
+import type { DmcColor } from "@/data/dmc-colors";
 import { Columns2, Download, ExternalLink, Palette, Star } from "lucide-react";
 import {
 	useCallback,
@@ -29,6 +31,8 @@ export interface PatternPreviewProps {
 	onOpenInEditor: () => void;
 	/** Original uploaded image URL for before/after comparison */
 	originalImageUrl?: string | null;
+	/** Whether DMC floss matching is active */
+	isDmcMatched?: boolean;
 	/** Additional class names */
 	className?: string;
 }
@@ -54,6 +58,7 @@ export function PatternPreview({
 	isProcessing,
 	onOpenInEditor,
 	originalImageUrl = null,
+	isDmcMatched = false,
 	className = "",
 }: PatternPreviewProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -176,6 +181,15 @@ export function PatternPreview({
 	const uniqueColors = processedImage?.palette.length ?? 0;
 	const canCompare = originalImageUrl !== null && processedImage !== null;
 
+	// Build DMC color info when floss matching is active
+	const dmcColors = useMemo((): Array<DmcColor | null> => {
+		if (!isDmcMatched || !processedImage) return [];
+		return processedImage.palette.map((color) => {
+			const hex = color.startsWith("#") ? color : oklchToHex(color);
+			return findNearestDmcColor(hex);
+		});
+	}, [isDmcMatched, processedImage]);
+
 	if (!processedImage && !isProcessing) {
 		return (
 			<div
@@ -291,10 +305,39 @@ export function PatternPreview({
 						{uniqueColors} color{uniqueColors !== 1 ? "s" : ""}
 					</span>
 
+					{/* DMC badge */}
+					{isDmcMatched && (
+						<span className="inline-flex items-center gap-1.5 rounded-full bg-craft-50 px-3 py-1 text-xs font-medium text-craft-700 dark:bg-craft-900/30 dark:text-craft-300">
+							<Palette className="h-3.5 w-3.5" />
+							DMC Floss
+						</span>
+					)}
+
 					{/* Size badge */}
 					<span className="inline-flex items-center gap-1.5 rounded-full bg-surface-tertiary px-3 py-1 text-xs font-medium text-text-secondary">
 						{processedImage.width} x {processedImage.height}
 					</span>
+				</div>
+			)}
+
+			{/* DMC color legend */}
+			{isDmcMatched && dmcColors.length > 0 && (
+				<div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface-secondary p-2">
+					{dmcColors.map((dmc, i) =>
+						dmc ? (
+							<span
+								key={`${dmc.id}-${i}`}
+								className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-secondary"
+								title={`${dmc.name} (${dmc.hex})`}
+							>
+								<span
+									className="inline-block h-2.5 w-2.5 rounded-sm border border-black/10"
+									style={{ backgroundColor: dmc.hex }}
+								/>
+								{dmc.id}
+							</span>
+						) : null,
+					)}
 				</div>
 			)}
 

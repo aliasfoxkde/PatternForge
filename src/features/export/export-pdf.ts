@@ -100,6 +100,11 @@ export async function exportToPDF(
 
 	const totalRowTiles = Math.ceil(grid.width / cellsPerRow);
 	const totalColTiles = Math.ceil(grid.height / cellsPerCol);
+	const legendPages =
+		includeLegend && uniqueColors.size > 0
+			? Math.ceil(uniqueColors.size / Math.floor((page.height - MARGIN * 2 - 15) / 12))
+			: 0;
+	const totalPages = totalRowTiles * totalColTiles + legendPages;
 	let pageNum = 0;
 
 	// Render grid tiles across pages
@@ -118,7 +123,7 @@ export async function exportToPDF(
 			doc.setFont("helvetica", "normal");
 			doc.setTextColor(128, 128, 128);
 			doc.text(
-				`Page ${pageNum + 1} of ${totalRowTiles * totalColTiles + (includeLegend ? 1 : 0)}`,
+				`Page ${pageNum + 1} of ${totalPages}`,
 				page.width - MARGIN,
 				MARGIN,
 				{ align: "right" },
@@ -224,72 +229,95 @@ export async function exportToPDF(
 
 	// Legend page with DMC floss matching
 	if (includeLegend && uniqueColors.size > 0) {
-		doc.addPage(pageSize === "a4" ? "a4" : "letter", "portrait");
-
-		doc.setFontSize(14);
-		doc.setFont("helvetica", "bold");
-		doc.text(`${patternName} - Color Legend`, MARGIN, MARGIN);
-
-		doc.setFontSize(8);
-		doc.setFont("helvetica", "normal");
-		doc.setTextColor(128, 128, 128);
-		doc.text(
-			`${grid.width} x ${grid.height} cells | ${uniqueColors.size} colors`,
-			MARGIN,
-			MARGIN + 5,
-		);
-		doc.setTextColor(0, 0, 0);
-
 		// Sort colors by usage count (most used first)
 		const sortedColors = [...uniqueColors.entries()].sort((a, b) => b[1] - a[1]);
 
-		const legendStartY = MARGIN + 15;
 		const swatchSize = 8;
 		const rowHeight = 12;
 		const columns = 3;
 		const colWidth = (page.width - MARGIN * 2) / columns;
+		const headerHeight = 15;
+		const colorsPerPage = Math.floor(
+			(page.height - MARGIN * 2 - headerHeight) / rowHeight,
+		);
 
-		let colorIdx = 0;
-		for (const [color, count] of sortedColors) {
-			const colIdx = colorIdx % columns;
-			const rowIdx = Math.floor(colorIdx / columns);
+		const totalLegendPages = Math.ceil(sortedColors.length / colorsPerPage);
 
-			const x = MARGIN + colIdx * colWidth;
-			const y = legendStartY + rowIdx * rowHeight;
+		for (let legendPage = 0; legendPage < totalLegendPages; legendPage++) {
+			doc.addPage(pageSize === "a4" ? "a4" : "letter", "portrait");
 
-			if (y > page.height - MARGIN) {
-				break;
+			const legendPageNum = totalRowTiles * totalColTiles + legendPage + 1;
+
+			// Header
+			doc.setFontSize(14);
+			doc.setFont("helvetica", "bold");
+			doc.text(`${patternName} - Color Legend`, MARGIN, MARGIN);
+
+			doc.setFontSize(8);
+			doc.setFont("helvetica", "normal");
+			doc.setTextColor(128, 128, 128);
+			doc.text(
+				`${grid.width} x ${grid.height} cells | ${uniqueColors.size} colors`,
+				MARGIN,
+				MARGIN + 5,
+			);
+			doc.text(
+				`Page ${legendPageNum} of ${totalPages}`,
+				page.width - MARGIN,
+				MARGIN,
+				{ align: "right" },
+			);
+			doc.setTextColor(0, 0, 0);
+
+			const legendStartY = MARGIN + headerHeight;
+			const startIdx = legendPage * colorsPerPage;
+			const endIdx = Math.min(startIdx + colorsPerPage, sortedColors.length);
+
+			for (let i = startIdx; i < endIdx; i++) {
+				const [color, count] = sortedColors[i]!;
+				const colorIdx = i - startIdx;
+				const colIdx = colorIdx % columns;
+				const rowIdx = Math.floor(colorIdx / columns);
+
+				const x = MARGIN + colIdx * colWidth;
+				const y = legendStartY + rowIdx * rowHeight;
+
+				// Swatch
+				const hex = oklchToHex(color);
+				doc.setFillColor(hex);
+				doc.rect(x, y, swatchSize, swatchSize, "F");
+				doc.setDrawColor(180, 180, 180);
+				doc.rect(x, y, swatchSize, swatchSize, "S");
+
+				// DMC match
+				const dmc = findNearestDmcColor(hex);
+				const label = dmc
+					? `${dmc.id} ${dmc.name} (${count})`
+					: `${hex} (${count})`;
+
+				doc.setFontSize(7);
+				doc.setFont("helvetica", "normal");
+				doc.text(label, x + swatchSize + 2, y + swatchSize / 2, {
+					baseline: "middle",
+				});
 			}
 
-			// Swatch
-			const hex = oklchToHex(color);
-			doc.setFillColor(hex);
-			doc.rect(x, y, swatchSize, swatchSize, "F");
-			doc.setDrawColor(180, 180, 180);
-			doc.rect(x, y, swatchSize, swatchSize, "S");
-
-			// DMC match
-			const dmc = findNearestDmcColor(hex);
-			const label = dmc
-				? `${dmc.id} ${dmc.name} (${count})`
-				: `${hex} (${count})`;
-
-			doc.setFontSize(7);
-			doc.setFont("helvetica", "normal");
-			doc.text(label, x + swatchSize + 2, y + swatchSize / 2, {
-				baseline: "middle",
-			});
-
-			colorIdx++;
-		}
-
-		// Total stitch count
-		const totalStitches = [...uniqueColors.values()].reduce((sum, c) => sum + c, 0);
-		const totalY = legendStartY + Math.ceil(sortedColors.length / columns) * rowHeight + 10;
-		if (totalY < page.height - MARGIN) {
-			doc.setFontSize(9);
-			doc.setFont("helvetica", "bold");
-			doc.text(`Total stitches: ${totalStitches}`, MARGIN, totalY);
+			// Total stitch count on last legend page
+			if (legendPage === totalLegendPages - 1) {
+				const totalStitches = [...uniqueColors.values()].reduce(
+					(sum, c) => sum + c,
+					0,
+				);
+				const totalY =
+					legendStartY +
+					Math.ceil(sortedColors.length / columns) * rowHeight +
+					10;
+				if (totalY < page.height - MARGIN) {
+					doc.setFontSize(9);
+					doc.setFont("helvetica", "bold");
+					doc.text(`Total stitches: ${totalStitches}`, MARGIN, totalY);
+				}
+			}
 		}
 	}
 
