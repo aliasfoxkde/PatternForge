@@ -8,6 +8,7 @@
 import { storage } from "@/shared/storage/storage";
 import { usePatternStore } from "@/shared/stores/pattern-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useToast } from "@/shared/hooks/use-toast";
 import { useEffect, useRef } from "react";
 
 export function useAutoSave(): void {
@@ -17,6 +18,7 @@ export function useAutoSave(): void {
 
 	const autoSave = useSettingsStore((s) => s.autoSave);
 	const autoSaveInterval = useSettingsStore((s) => s.autoSaveInterval);
+	const toast = useToast();
 
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -52,6 +54,7 @@ export function useAutoSave(): void {
 				markSaved();
 			} catch (error) {
 				console.error("[AutoSave] Failed to save pattern:", error);
+				toast.error("Auto-save failed — your changes may not be saved");
 			}
 		}, delayMs);
 

@@ -18,6 +18,7 @@ import {
 	Move,
 	FlipHorizontal,
 	FlipVertical,
+	Type,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 
@@ -44,6 +45,7 @@ const SHAPE_TOOLS: ToolItem[] = [
 const SELECT_TOOLS: ToolItem[] = [
 	{ type: 'color-picker', label: 'Color Picker', shortcut: 'I', icon: Pipette },
 	{ type: 'selection', label: 'Selection', shortcut: 'S', icon: MousePointer2 },
+	{ type: 'text', label: 'Text', shortcut: 'T', icon: Type },
 ];
 
 const VIEW_TOOLS: ToolItem[] = [

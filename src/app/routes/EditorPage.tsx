@@ -46,8 +46,10 @@ import {
 	Minus,
 	Pipette,
 	Move,
+	MousePointer2,
 	FlipHorizontal,
 	FlipVertical,
+	Type,
 	Plus,
 	Redo2,
 	Save,
@@ -72,6 +74,8 @@ const MOBILE_TOOLS: { type: ToolType; icon: React.ComponentType<{ className?: st
 	{ type: "rectangle", icon: Square },
 	{ type: "ellipse", icon: Circle },
 	{ type: "color-picker", icon: Pipette },
+	{ type: "selection", icon: MousePointer2 },
+	{ type: "text", icon: Type },
 	{ type: "pan", icon: Move },
 ];
 
