@@ -9,13 +9,15 @@
  * Includes "Quick Create" shortcut on step 1.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { usePatternStore } from '@/shared/stores/pattern-store';
 import { useSettingsStore } from '@/shared/stores/settings-store';
 import type { CraftType } from '@/engine/pattern/types';
 import { CRAFT_TYPE_LABELS } from '@/engine/pattern/types';
+import type { ColorPalette } from '@/engine/color/types';
+import { DMC_COLORS } from '@/data/dmc-colors';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Sparkles, X, Grid3X3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, X, Grid3X3, Ruler } from 'lucide-react';
 import { FocusTrap } from '@/shared/ui';
 
 export interface NewPatternDialogProps {
@@ -47,14 +49,27 @@ const DIMENSION_PRESETS: { label: string; width: number; height: number }[] = [
 	{ label: 'Tall (60\u00D7120)', width: 60, height: 120 },
 ];
 
+// ---- Fabric count presets (stitches per inch) ----
+
+const FABRIC_COUNTS = [11, 14, 16, 18, 22, 28, 32] as const;
+
+function formatRealSize(cells: number, fabricCount: number): string {
+	const inches = cells / fabricCount;
+	if (inches < 1) {
+		return `${Math.round(inches * 16) / 16}"`;
+	}
+	return `${inches.toFixed(1)}"`;
+}
+
 // ---- Step components ----
 
-type WizardStep = 'craft' | 'dimensions' | 'name';
+type WizardStep = 'craft' | 'dimensions' | 'colors' | 'name';
 
-const STEP_ORDER: WizardStep[] = ['craft', 'dimensions', 'name'];
+const STEP_ORDER: WizardStep[] = ['craft', 'dimensions', 'colors', 'name'];
 const STEP_LABELS: Record<WizardStep, string> = {
 	craft: 'Craft Type',
 	dimensions: 'Size',
+	colors: 'Colors',
 	name: 'Name',
 };
 
@@ -95,6 +110,9 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 	const [craftType, setCraftType] = useState<CraftType>('cross-stitch');
 	const [width, setWidth] = useState(40);
 	const [height, setHeight] = useState(40);
+	const [fabricCount, setFabricCount] = useState(14);
+	const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
+	const [colorSearch, setColorSearch] = useState('');
 	const [name, setName] = useState('');
 
 	const nameInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +122,33 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 	const defaultHeight = useSettingsStore((s) => s.defaultGridHeight);
 	const navigate = useNavigate();
 
+	// Real-world size calculation
+	const realSize = useMemo(() => ({
+		width: formatRealSize(width, fabricCount),
+		height: formatRealSize(height, fabricCount),
+	}), [width, height, fabricCount]);
+
+	// Filtered DMC colors for search
+	const filteredColors = useMemo(() => {
+		if (!colorSearch.trim()) return DMC_COLORS;
+		const q = colorSearch.toLowerCase();
+		return DMC_COLORS.filter(
+			(c) =>
+				c.name.toLowerCase().includes(q) ||
+				c.id.includes(q) ||
+				c.hex.toLowerCase().includes(q),
+		);
+	}, [colorSearch]);
+
+	const toggleColor = useCallback((hex: string) => {
+		setSelectedColors((prev) => {
+			const next = new Set(prev);
+			if (next.has(hex)) next.delete(hex);
+			else next.add(hex);
+			return next;
+		});
+	}, []);
+
 	// Reset state when dialog opens
 	useEffect(() => {
 		if (open) {
@@ -111,6 +156,8 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 			setCraftType(defaultCraftType as CraftType);
 			setWidth(defaultWidth);
 			setHeight(defaultHeight);
+			setSelectedColors(new Set());
+			setColorSearch('');
 			setName('');
 		}
 	}, [open, defaultCraftType, defaultWidth, defaultHeight]);
@@ -141,10 +188,34 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 
 	const handleCreate = useCallback(() => {
 		const trimmedName = name.trim() || 'Untitled Pattern';
-		createPattern(trimmedName, width, height, craftType);
+		const gauge = {
+			stitches: fabricCount,
+			rows: fabricCount,
+			unit: 'in' as const,
+		};
+		const palette: ColorPalette | undefined =
+			selectedColors.size > 0
+				? {
+						id: `palette-${Date.now()}`,
+						name: 'Custom Palette',
+						colors: Array.from(selectedColors).map((hex, i) => {
+							const dmc = DMC_COLORS.find((c) => c.hex === hex);
+							return {
+								id: `color-${i}`,
+								name: dmc ? dmc.name : `Color ${i + 1}`,
+								hex,
+								oklch: { mode: 'oklch' as const, l: 0, c: 0, h: 0 },
+								brand: dmc ? 'DMC' : null,
+								threadNumber: dmc ? dmc.id : null,
+								symbol: null,
+							};
+						}),
+					}
+				: undefined;
+		createPattern(trimmedName, width, height, craftType, gauge, palette);
 		onClose();
 		navigate('/editor');
-	}, [name, width, height, craftType, createPattern, onClose, navigate]);
+	}, [name, width, height, craftType, fabricCount, selectedColors, createPattern, onClose, navigate]);
 
 	if (!open) return null;
 
@@ -290,15 +361,124 @@ export function NewPatternDialog({ open, onClose }: NewPatternDialogProps) {
 								</div>
 							</div>
 						</div>
+
+						{/* Fabric count / gauge */}
+						<div className="rounded-lg border border-border bg-surface-tertiary/50 p-3">
+							<label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-text-primary">
+								<Ruler className="h-3.5 w-3.5" />
+								Fabric Count
+							</label>
+							<div className="flex flex-wrap gap-1.5">
+								{FABRIC_COUNTS.map((count) => (
+									<button
+										key={count}
+										type="button"
+										onClick={() => setFabricCount(count)}
+										className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+											fabricCount === count
+												? 'border-craft-600 bg-craft-50 text-craft-700 dark:bg-craft-900/30 dark:text-craft-300'
+												: 'border-border text-text-secondary hover:border-craft-400 hover:bg-surface'
+										}`}
+									>
+										{count}ct
+									</button>
+								))}
+							</div>
+							<p className="mt-2 text-xs text-text-muted">
+								Finished size: {realSize.width} &times; {realSize.height} ({fabricCount}ct Aida)
+							</p>
+						</div>
 					</div>
 				)}
 
-				{/* Step 3: Name & Create */}
+				{/* Step 3: Colors (optional) */}
+				{step === 'colors' && (
+					<div className="space-y-4">
+						<div className="flex items-center justify-between">
+							<p className="text-sm text-text-secondary">
+								Select thread colors for your palette.
+							</p>
+							{selectedColors.size > 0 && (
+								<span className="text-xs text-text-muted">
+									{selectedColors.size} selected
+								</span>
+							)}
+						</div>
+
+						{/* Search */}
+						<input
+							type="text"
+							value={colorSearch}
+							onChange={(e) => setColorSearch(e.target.value)}
+							placeholder="Search DMC colors..."
+							className="w-full rounded-md border border-border bg-surface-tertiary px-3 py-1.5 text-sm text-text-primary placeholder-text-muted focus:border-craft-500 focus:outline-none focus:ring-1 focus:ring-craft-300"
+						/>
+
+						{/* Selected colors strip */}
+						{selectedColors.size > 0 && (
+							<div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface-tertiary/50 p-2">
+								{Array.from(selectedColors).map((hex) => {
+									const dmc = DMC_COLORS.find((c) => c.hex === hex);
+									return (
+										<button
+											key={hex}
+											type="button"
+											onClick={() => toggleColor(hex)}
+											className="group relative flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-xs"
+											title={`${dmc?.name ?? hex} — click to remove`}
+										>
+											<span
+												className="inline-block h-3.5 w-3.5 rounded-sm border border-black/10"
+												style={{ backgroundColor: hex }}
+											/>
+											<span className="max-w-[60px] truncate text-text-secondary">{dmc?.id}</span>
+										</button>
+									);
+								})}
+							</div>
+						)}
+
+						{/* Color grid */}
+						<div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-surface-tertiary/50 p-2">
+							<div className="grid grid-cols-8 gap-1 sm:grid-cols-10">
+								{filteredColors.map((color) => {
+									const isSelected = selectedColors.has(color.hex);
+									return (
+										<button
+											key={color.id}
+											type="button"
+											onClick={() => toggleColor(color.hex)}
+											className={`relative h-7 w-7 rounded-sm border-2 transition-all ${
+												isSelected
+													? 'border-craft-600 ring-1 ring-craft-300'
+													: 'border-transparent hover:border-border'
+											}`}
+											style={{ backgroundColor: color.hex }}
+											title={`${color.id}: ${color.name}`}
+										>
+											{isSelected && (
+												<Check className="absolute inset-0 m-auto h-3.5 w-3.5 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]" />
+											)}
+										</button>
+									);
+								})}
+							</div>
+							{filteredColors.length === 0 && (
+								<p className="py-4 text-center text-xs text-text-muted">No colors match your search.</p>
+							)}
+						</div>
+					</div>
+				)}
+
+				{/* Step 4: Name & Create */}
 				{step === 'name' && (
 					<div className="space-y-4">
 						<div className="rounded-lg border border-border bg-surface-tertiary/50 p-3">
 							<p className="text-sm text-text-secondary">
 								<strong>{CRAFT_TYPE_LABELS[craftType]}</strong> &mdash; {width} &times; {height} cells
+							</p>
+							<p className="text-xs text-text-muted">
+								{realSize.width} &times; {realSize.height} ({fabricCount}ct Aida)
 							</p>
 						</div>
 

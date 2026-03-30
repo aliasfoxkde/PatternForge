@@ -16,6 +16,7 @@ import type { CommandItem } from "@/features/editor/components/CommandPalette";
 import { GridCanvas } from "@/features/editor/components/GridCanvas";
 import { KeyboardShortcuts } from "@/features/editor/components/KeyboardShortcuts";
 import { TilePreviewDialog } from "@/features/editor/components/TilePreviewDialog";
+import { ImportImageDialog } from "@/features/editor/components/ImportImageDialog";
 import { Minimap } from "@/features/editor/components/Minimap";
 import { NewPatternDialog } from "@/features/editor/components/NewPatternDialog";
 import { MobileColorPicker } from "@/features/editor/components/MobileColorPicker";
@@ -60,6 +61,7 @@ import {
 	Undo2,
 	ZoomIn,
 	ZoomOut,
+	ImageIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -152,6 +154,7 @@ export function EditorPage() {
 	const [showProgressPanel, setShowProgressPanel] = useState(false);
 	const [showShareDialog, setShowShareDialog] = useState(false);
 	const [showTilePreview, setShowTilePreview] = useState(false);
+	const [showImportImage, setShowImportImage] = useState(false);
 
 	const toast = useToast();
 
@@ -174,6 +177,9 @@ export function EditorPage() {
 
 	// History manager
 	const { executeCommand, executeResize, executeApplyCells, undo, redo } = useHistoryManager();
+
+	const brushSize = useEditorStore((s) => s.brushSize);
+	const setBrushSize = useEditorStore((s) => s.setBrushSize);
 
 	// Auto-save
 	useAutoSave();
@@ -321,9 +327,12 @@ export function EditorPage() {
 			"mod+-": () => handleZoomOut(),
 			"mod+0": () => handleFitToView(),
 			"mod+k": () => setShowCommandPalette(true),
+			"mod+i": () => setShowImportImage(true),
 			"=": () => handleZoomIn(),
 			"-": () => handleZoomOut(),
 			"?": () => toggleShortcuts(),
+			"[": () => setBrushSize(brushSize - 1),
+			"]": () => setBrushSize(brushSize + 1),
 			Escape: () => {
 				if (selectionRect) {
 					setSelectionRect(null);
@@ -364,6 +373,8 @@ export function EditorPage() {
 			pattern,
 			executeCommand,
 			updateGrid,
+			brushSize,
+			setBrushSize,
 		],
 	);
 
@@ -385,6 +396,12 @@ export function EditorPage() {
 				shortcut: "Ctrl+S",
 				icon: Save,
 				action: handleSave,
+			},
+			{
+				id: "import-image",
+				label: "Import Image",
+				icon: ImageIcon,
+				action: () => setShowImportImage(true),
 			},
 			{
 				id: "undo",
@@ -475,6 +492,7 @@ export function EditorPage() {
 			showGridLines,
 			setShowGridLines,
 			setActiveTool,
+			setShowImportImage,
 		],
 	);
 
@@ -516,12 +534,13 @@ export function EditorPage() {
 	return (
 		<div className="flex h-full w-full flex-col bg-surface">
 			{/* Editor navigation bar */}
-			<EditorNav
+		<EditorNav
 				onSave={handleSave}
 				onShare={() => setShowShareDialog(true)}
 				onExport={() => setShowExportDialog(true)}
 				onInstructions={() => setShowInstructionsDialog(true)}
 				onProgress={() => setShowProgressPanel((v) => !v)}
+				onImport={() => setShowImportImage(true)}
 			/>
 
 			{/* Main content area */}
@@ -596,6 +615,10 @@ export function EditorPage() {
 			<KeyboardShortcuts
 				open={showShortcuts}
 				onClose={() => useEditorStore.getState().setShowShortcuts(false)}
+			/>
+				<ImportImageDialog
+				open={showImportImage}
+				onClose={() => setShowImportImage(false)}
 			/>
 			{selectionRect && (
 				<TilePreviewDialog

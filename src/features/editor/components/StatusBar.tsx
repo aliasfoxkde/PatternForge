@@ -4,7 +4,7 @@
  * Shows cursor position, grid dimensions, zoom level, and row counter.
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { GridSizeControls } from '@/features/editor/components/GridSizeControls';
 import { RowCounter } from '@/features/progress/components/RowCounter';
 import { useProgressStore } from '@/features/progress/progress-store';
@@ -25,6 +25,17 @@ export const StatusBar = memo(function StatusBar({ cursorPos, onResize }: Status
 
 	const gridWidth = pattern?.grid.width ?? 0;
 	const gridHeight = pattern?.grid.height ?? 0;
+	const gauge = pattern?.metadata.gauge;
+
+	const gaugeLabel = useMemo(() => {
+		if (!gauge) return null;
+		const wInch = gridWidth / gauge.stitches;
+		const hInch = gridHeight / gauge.rows;
+		if (gauge.unit === 'cm') {
+			return `${(wInch * 2.54).toFixed(1)}cm \u00D7 ${(hInch * 2.54).toFixed(1)}cm (${gauge.stitches}ct)`;
+		}
+		return `${wInch.toFixed(1)}" \u00D7 ${hInch.toFixed(1)}" (${gauge.stitches}ct)`;
+	}, [gauge, gridWidth, gridHeight]);
 
 	return (
 		<div className="flex h-6 items-center justify-between border-t border-border bg-surface-secondary px-3 text-[11px] text-text-muted" role="status" aria-live="polite">
@@ -40,6 +51,7 @@ export const StatusBar = memo(function StatusBar({ cursorPos, onResize }: Status
 					`${gridWidth} x ${gridHeight}`
 				)}
 			</span>
+			{gaugeLabel && <span>{gaugeLabel}</span>}
 			<span>{Math.round(zoom * 100)}%</span>
 			{pattern && (
 				<RowCounter

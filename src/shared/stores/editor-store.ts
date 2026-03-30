@@ -38,6 +38,8 @@ interface EditorState {
 
 	activeColor: string;
 	setActiveColor: (color: string) => void;
+	secondaryColor: string;
+	setSecondaryColor: (color: string) => void;
 	activeSymbol: string | null;
 	setActiveSymbol: (symbol: string | null) => void;
 	activeStitchType: StitchType;
@@ -108,6 +110,8 @@ export const useEditorStore = create<EditorState>()((set) => ({
 	// Color / symbol
 	activeColor: "#000000",
 	setActiveColor: (color) => set({ activeColor: color }),
+	secondaryColor: "#ffffff",
+	setSecondaryColor: (color) => set({ secondaryColor: color }),
 	activeSymbol: null,
 	setActiveSymbol: (symbol) => set({ activeSymbol: symbol }),
 	activeStitchType: "full" as StitchType,

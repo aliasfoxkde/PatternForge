@@ -108,8 +108,11 @@ export const ToolPalette = memo(function ToolPalette() {
 	const setMirrorVertical = useEditorStore((s) => s.setMirrorVertical);
 	const activeStitchType = useEditorStore((s) => s.activeStitchType);
 	const setActiveStitchType = useEditorStore((s) => s.setActiveStitchType);
+	const brushSize = useEditorStore((s) => s.brushSize);
+	const setBrushSize = useEditorStore((s) => s.setBrushSize);
 
 	const isDrawTool = ['pencil', 'brush', 'fill', 'line', 'rectangle', 'ellipse'].includes(activeTool);
+	const showBrushSize = ['brush', 'eraser'].includes(activeTool);
 
 	return (
 		<aside className="flex w-12 flex-col items-center gap-1 border-r border-border bg-surface-secondary py-2" role="toolbar" aria-label="Drawing tools">
@@ -177,7 +180,33 @@ export const ToolPalette = memo(function ToolPalette() {
 							</button>
 						))}
 					</div>
-				 </>
+				</>
+			)}
+
+			{/* Brush size selector — only visible when brush or eraser is active */}
+			{showBrushSize && (
+				<>
+					<ToolDivider />
+					<div className="flex flex-col items-center gap-0.5">
+						<span className="text-[10px] text-text-muted">Size</span>
+						{[1, 2, 3, 5, 8].map((size) => (
+							<button
+								key={size}
+								type="button"
+								title={`${size}px brush`}
+								className={cn(
+									'flex h-7 w-9 items-center justify-center rounded text-xs tabular-nums transition-colors',
+									brushSize === size
+										? 'bg-craft-200 text-craft-800'
+										: 'text-text-muted hover:bg-surface-tertiary hover:text-text-primary',
+								)}
+								onClick={() => setBrushSize(size)}
+							>
+								{size}
+							</button>
+						))}
+					</div>
+				</>
 			)}
 
 			{/* Spacer pushes mirror buttons to bottom */}

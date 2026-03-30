@@ -73,21 +73,30 @@ export function TilePreviewDialog({
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
 
-		const cellSize = Math.max(2, Math.min(12, Math.floor(500 / (tileW * repeatCount))));
+		const cellSize = Math.max(2, Math.min(20, Math.floor(800 / (tileW * repeatCount))));
 		canvas.width = tileW * repeatCount * cellSize;
 		canvas.height = tileH * repeatCount * cellSize;
 		canvas.style.width = `${tileW * repeatCount * cellSize}px`;
 		canvas.style.height = `${tileH * repeatCount * cellSize}px`;
 
+		// Re-extract tile data on every render so it stays live
+		const cells: Array<{ row: number; col: number; data: Partial<Cell> }> = [];
+		for (let r = minRow; r <= maxRow; r++) {
+			for (let c = minCol; c <= maxCol; c++) {
+				const cell = pattern.grid.getCell(r, c);
+				if (cell && (cell.color || cell.symbol || cell.stitchType !== "full")) {
+					cells.push({
+						row: r - minRow,
+						col: c - minCol,
+						data: { color: cell.color, symbol: cell.symbol, stitchType: cell.stitchType },
+					});
+				}
+			}
+		}
+
 		// White background
 		ctx.fillStyle = "#ffffff";
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		const cells = tileData();
-		const cellMap = new Map<string, Partial<Cell>>();
-		for (const c of cells) {
-			cellMap.set(`${c.row},${c.col}`, c.data);
-		}
 
 		// Render tiled cells
 		for (let repY = 0; repY < repeatCount; repY++) {
@@ -123,7 +132,7 @@ export function TilePreviewDialog({
 			ctx.lineTo(canvas.width, y);
 			ctx.stroke();
 		}
-	}, [open, pattern, tileData, repeatCount, tileW, tileH]);
+	}, [open, pattern, repeatCount, tileW, tileH, minRow, maxRow, minCol, maxCol]);
 
 	// Apply tiled pattern to the grid
 	const handleApply = useCallback(() => {
@@ -173,7 +182,7 @@ export function TilePreviewDialog({
 			aria-modal="true"
 			aria-label="Tile preview"
 		>
-			<div className="flex w-full max-w-2xl flex-col gap-4 rounded-xl bg-surface p-5 shadow-xl">
+			<div className="flex w-full max-w-4xl flex-col gap-4 rounded-xl bg-surface p-5 shadow-xl">
 				{/* Header */}
 				<div className="flex items-center justify-between">
 					<h2 className="text-base font-semibold text-text-primary">

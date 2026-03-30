@@ -38,6 +38,7 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 	const lastGridPosRef = useRef<GridPosition | null>(null);
 	const panStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
 	const shapeStartRef = useRef<GridPosition | null>(null);
+	const shiftKeyRef = useRef(false);
 	const pendingChangesRef = useRef<Array<{ row: number; col: number; data: Partial<Cell> }>>([]);
 	const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null);
 
@@ -45,6 +46,7 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 	const pattern = usePatternStore((s) => s.pattern);
 	const activeTool = useEditorStore((s) => s.activeTool);
 	const activeColor = useEditorStore((s) => s.activeColor);
+	const secondaryColor = useEditorStore((s) => s.secondaryColor);
 	const activeSymbol = useEditorStore((s) => s.activeSymbol);
 	const brushSize = useEditorStore((s) => s.brushSize);
 	const mirrorHorizontal = useEditorStore((s) => s.mirrorHorizontal);
@@ -161,6 +163,30 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 		return () => observer.disconnect();
 	}, []);
 
+	// ---- Shift-constrain helper ------------------------------------------
+
+	/** Constrain end position to horizontal, vertical, or 45-degree angle from start. */
+	const constrainPosition = useCallback(
+		(start: GridPosition, end: GridPosition): GridPosition => {
+			if (!shiftKeyRef.current) return end;
+			const dx = end.col - start.col;
+			const dy = end.row - start.row;
+			const adx = Math.abs(dx);
+			const ady = Math.abs(dy);
+			// If mostly horizontal, snap to horizontal
+			if (adx > ady * 2) return { row: start.row, col: end.col };
+			// If mostly vertical, snap to vertical
+			if (ady > adx * 2) return { row: end.row, col: start.col };
+			// Snap to 45-degree diagonal
+			const dist = Math.max(adx, ady);
+			return {
+				row: start.row + dist * (dy >= 0 ? 1 : -1),
+				col: start.col + dist * (dx >= 0 ? 1 : -1),
+			};
+		},
+		[],
+	);
+
 	// ---- Apply tool at grid position ----------------------------------------
 
 	/**
@@ -275,10 +301,33 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
+			// Track shift key state
+			shiftKeyRef.current = e.shiftKey;
+
 			const pos = getCanvasPos(e);
 			if (!pos) return;
 
 			const gridPos = renderer.screenToGrid(pos.x, pos.y);
+
+			// Right click = draw with secondary color
+			if (e.button === 2 && gridPos) {
+				isDrawingRef.current = true;
+				lastGridPosRef.current = gridPos;
+				const color = secondaryColor;
+				const symbol = activeSymbol;
+				const stitchType = activeStitchType;
+				const result = DrawingTools.pencil(
+					pattern!.grid,
+					gridPos,
+					color,
+					symbol,
+					stitchType,
+				);
+				if (result) {
+					pendingChangesRef.current.push(...result.cells);
+				}
+				return;
+			}
 
 			// Middle mouse or space+click = pan
 			if (e.button === 1 || (e.button === 0 && activeTool === 'pan')) {
@@ -331,7 +380,7 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 				pendingChangesRef.current.push(...result.cells);
 			}
 		},
-		[activeTool, applyToolAt, getCanvasPos, setSelectionRect],
+		[activeTool, applyToolAt, getCanvasPos, setSelectionRect, secondaryColor, activeSymbol, activeStitchType],
 	);
 
 	const handleMouseMove = useCallback(
@@ -339,10 +388,13 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 			const renderer = rendererRef.current;
 			if (!renderer) return;
 
+			// Track shift key state
+			shiftKeyRef.current = e.shiftKey;
+
 			const pos = getCanvasPos(e);
 			if (!pos) return;
 
-			const gridPos = renderer.screenToGrid(pos.x, pos.y);
+			let gridPos = renderer.screenToGrid(pos.x, pos.y);
 			setCursorPos(gridPos);
 
 			// Panning
@@ -377,7 +429,13 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 
 				// For freeform tools (pencil, brush, eraser), draw along the path
 				if (lastGridPosRef.current) {
-					const lineResult = DrawingTools.line(lastGridPosRef.current, gridPos, activeColor, activeSymbol);
+					// Constrain to straight line when Shift held
+					let drawEnd = gridPos;
+					if (shiftKeyRef.current) {
+						drawEnd = constrainPosition(lastGridPosRef.current, gridPos);
+					}
+
+					const lineResult = DrawingTools.line(lastGridPosRef.current, drawEnd, activeColor, activeSymbol);
 					for (const entry of lineResult.cells) {
 						// For eraser, override the data
 						if (activeTool === 'eraser') {
@@ -394,22 +452,22 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 							});
 						}
 					}
-				}
 
-				// Apply immediately for visual feedback
-				const grid = pattern?.grid;
-				if (grid) {
-					for (const change of pendingChangesRef.current) {
-						if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
-						grid.setCell(change.row, change.col, change.data);
+					// Apply immediately for visual feedback
+					const grid = pattern?.grid;
+					if (grid) {
+						for (const change of pendingChangesRef.current) {
+							if (change.row < 0 || change.row >= grid.height || change.col < 0 || change.col >= grid.width) continue;
+							grid.setCell(change.row, change.col, change.data);
+						}
+						usePatternStore.getState().updateGrid(() => {});
 					}
-					usePatternStore.getState().updateGrid(() => {});
-				}
 
-				lastGridPosRef.current = gridPos;
+					lastGridPosRef.current = drawEnd;
+				}
 			}
 		},
-		[activeTool, activeColor, activeSymbol, applyToolAt, pattern?.grid, getCanvasPos, setSelectionRect],
+		[activeTool, activeColor, activeSymbol, applyToolAt, pattern?.grid, getCanvasPos, setSelectionRect, constrainPosition],
 	);
 
 	const handleMouseUp = useCallback(
@@ -450,7 +508,11 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 			if (shapeStartRef.current && renderer) {
 				const pos = getCanvasPos(e);
 				if (pos) {
-					const gridPos = renderer.screenToGrid(pos.x, pos.y);
+					let gridPos = renderer.screenToGrid(pos.x, pos.y);
+					// Constrain with Shift
+					if (gridPos && shapeStartRef.current) {
+						gridPos = constrainPosition(shapeStartRef.current, gridPos);
+					}
 					if (gridPos) {
 						const result = applyToolAt(gridPos, true);
 						if (result) {
@@ -465,7 +527,7 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 			commitStroke();
 			lastGridPosRef.current = null;
 		},
-		[activeTool, applyToolAt, commitStroke, getCanvasPos, setSelectionRect],
+		[activeTool, applyToolAt, commitStroke, getCanvasPos, setSelectionRect, constrainPosition],
 	);
 
 	// ---- Wheel zoom ---------------------------------------------------------
@@ -661,6 +723,23 @@ export function GridCanvas({ executeCommand, onTilePreview }: GridCanvasProps) {
 
 	const handleContextMenu = useCallback((e: React.MouseEvent) => {
 		e.preventDefault();
+	}, []);
+
+	// ---- Global shift key tracking ----------------------------------------
+
+	useEffect(() => {
+		const onKeyUp = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftKeyRef.current = false;
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') shiftKeyRef.current = true;
+		};
+		window.addEventListener('keyup', onKeyUp);
+		window.addEventListener('keydown', onKeyDown);
+		return () => {
+			window.removeEventListener('keyup', onKeyUp);
+			window.removeEventListener('keydown', onKeyDown);
+		};
 	}, []);
 
 	// ---- Selection actions --------------------------------------------------

@@ -13,6 +13,7 @@ import {
 	generateId,
 } from "@/engine/pattern/types";
 import type { PatternGrid } from "@/engine/grid/grid";
+import type { ColorPalette } from "@/engine/color/types";
 import { create } from "zustand";
 
 interface PatternState {
@@ -30,6 +31,8 @@ interface PatternState {
 		width: number,
 		height: number,
 		craftType: CraftType,
+		gauge?: PatternMetadata['gauge'],
+		palette?: ColorPalette,
 	) => void;
 
 	/** Load an existing pattern (e.g. from storage) */
@@ -61,7 +64,7 @@ export const usePatternStore = create<PatternState>()((set, get) => ({
 	pattern: null,
 	isDirty: false,
 
-	createPattern(name, width, height, craftType) {
+	createPattern(name, width, height, craftType, gauge, palette) {
 		const pattern = createEmptyPattern(
 			generateId(),
 			name,
@@ -69,6 +72,12 @@ export const usePatternStore = create<PatternState>()((set, get) => ({
 			height,
 			craftType,
 		);
+		if (gauge) {
+			pattern.metadata.gauge = gauge;
+		}
+		if (palette) {
+			pattern.palette = palette;
+		}
 		set({ pattern, isDirty: false });
 	},
 

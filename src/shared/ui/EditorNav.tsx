@@ -12,6 +12,7 @@ import {
 	Download,
 	FileText,
 	BarChart3,
+	Upload,
 } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import { useEditorStore } from "@/shared/stores/editor-store";
@@ -24,6 +25,7 @@ interface EditorNavProps {
 	onExport: () => void;
 	onInstructions: () => void;
 	onProgress: () => void;
+	onImport?: () => void;
 }
 
 export function EditorNav({
@@ -32,6 +34,7 @@ export function EditorNav({
 	onExport,
 	onInstructions,
 	onProgress,
+	onImport,
 }: EditorNavProps) {
 	const navigate = useNavigate();
 
@@ -179,6 +182,7 @@ export function EditorNav({
 								<MenuAction icon={Share2} label="Share" onClick={() => { setMenuOpen(false); onShare(); }} />
 								<MenuAction icon={Download} label="Export" onClick={() => { setMenuOpen(false); onExport(); }} />
 								<MenuAction icon={FileText} label="Instructions" onClick={() => { setMenuOpen(false); onInstructions(); }} />
+								{onImport && <MenuAction icon={Upload} label="Import Image" onClick={() => { setMenuOpen(false); onImport(); }} />}
 								<MenuAction icon={BarChart3} label="Progress" onClick={() => { setMenuOpen(false); onProgress(); }} />
 							</div>
 						</>
