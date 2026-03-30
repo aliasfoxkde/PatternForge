@@ -8,6 +8,10 @@ dist/
 .vercel/
 .next/
 .wrangler/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+vite.config.mts
 
 # Environment variables
 .env
